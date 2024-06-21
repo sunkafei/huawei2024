@@ -14,7 +14,7 @@ struct edge_t {
     void set(int l, int r) {
         uint64_t mask = (1ull << (r + 1)) - (1ull << l);
         #ifdef __SMZ_RUNTIME_CHECK
-        if ((channel & mask) != 0 || l <= 0 || r > k || l > r) {
+        if (l <= 0 || r > k || l > r) {
             abort();
         }
         #endif
@@ -23,7 +23,7 @@ struct edge_t {
     void clear(int l, int r) {
         uint64_t mask = (1ull << (r + 1)) - (1ull << l);
         #ifdef __SMZ_RUNTIME_CHECK
-        if ((channel & mask) != mask || l <= 0 || r > k || l > r) {
+        if (l <= 0 || r > k || l > r) {
             abort();
         }
         #endif
@@ -40,7 +40,7 @@ struct edge_t {
     }
     void remove(int x) {
         #ifdef __SMZ_RUNTIME_CHECK
-        if (occupied.empty()) {
+        if (occupied.empty() || x <= 0 || x > q) {
             abort();
         }
         #endif
@@ -57,10 +57,14 @@ struct edge_t {
     }
     void insert(int x) {
         #ifdef __SMZ_RUNTIME_CHECK
+        int cnt = 0;
         for (int i = 0; i < occupied.size(); ++i) {
             if (occupied[i] == x) {
-                abort();
+                cnt += 1;
             }
+        }
+        if (cnt > 1 || x <= 0 || x > q) {
+            abort();
         }
         #endif
         occupied.push_back(x);
@@ -76,16 +80,10 @@ struct query_t {
     int span;
     bool dead;
     std::vector<std::pair<int, int>> path, backup;
-    void apply(const std::vector<std::pair<int, int>>& new_path) {
-        #ifdef __SMZ_RUNTIME_CHECK
-        if (path.size()) {
-            abort();
-        }
-        #endif
+    void apply(const std::vector<std::pair<int, int>>& new_path) const {
         int node = from;
         int channel = -1;
-        path = new_path;
-        for (auto [e, L] : path) {
+        for (auto [e, L] : new_path) {
             edges[e].set(L, L + span);
             edges[e].insert(index);
             if (channel != -1 && channel != L) {
@@ -103,12 +101,10 @@ struct query_t {
             channel = L;
         }
     }
-    void undo() {
-        backup = std::move(path);
-        path.clear();
+    void undo(const std::vector<std::pair<int, int>>& the_path) const {
         int node = from;
         int channel = -1;
-        for (auto [e, L] : backup) {
+        for (auto [e, L] : the_path) {
             edges[e].clear(L, L + span);
             edges[e].remove(index);
             if (channel != -1 && channel != L) {
@@ -123,8 +119,24 @@ struct query_t {
             channel = L;
         }
     }
+    void undo() {
+        backup = std::move(path);
+        path.clear();
+        undo(backup);
+    }
     void redo() {
+        path = backup;
+        apply(path);
+    }
+    void plan(const std::vector<std::pair<int, int>>& new_path) {
+        path = new_path;
+        apply(path);
         apply(backup);
+    }
+    void confirm() {
+        undo(backup);
+        undo(path);
+        apply(path);
     }
 } query[MAXJ];
 std::vector<std::pair<int, edge_t*>> G[MAXN];
@@ -245,11 +257,10 @@ namespace testcase {
             ::query[i].span = R - L;
             ::query[i].dead = false;
             ::query[i].path.clear();
-            std::vector<std::pair<int, int>> path;
             for (auto e : E) {
-                path.emplace_back(e, L);
+                ::query[i].path.emplace_back(e, L);
             }
-            ::query[i].apply(path);
+            ::query[i].apply(::query[i].path);
         }
     }
 }
@@ -308,17 +319,29 @@ std::vector<int> solve(int e) {
     }
     std::vector<int> ret;
     std::vector<int> deleted = edges[e].occupied;
+    #ifdef __SMZ_RUNTIME_CHECK
+    for (int i = 0; i < deleted.size(); ++i) {
+        for (int j = 0; j < i; ++j) {
+            if (deleted[i] == deleted[j]) {
+                abort();
+            }
+        }
+    }
+    #endif
     for (auto i : deleted) if (!query[i].dead) {
         query[i].undo();
         auto new_path = bfs(query[i]);
-        if (new_path.empty() || i != deleted[0]) { //todo!!! -> i != deleted[0]
+        if (new_path.empty()) {
             query[i].redo();
             query[i].dead = true;
         }
         else {
-            query[i].apply(new_path);
+            query[i].plan(new_path);
             ret.push_back(i);
         }
+    }
+    for (auto i : ret) {
+        query[i].confirm();
     }
     return ret;
 }
