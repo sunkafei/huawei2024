@@ -328,6 +328,9 @@ std::vector<int> solve(int e) {
         }
     }
     #endif
+    std::sort(deleted.begin(), deleted.end(), [](int x, int y) {
+        return query[x].value > query[y].value;
+    });
     for (auto i : deleted) if (!query[i].dead) {
         query[i].undo();
         auto new_path = bfs(query[i]);
