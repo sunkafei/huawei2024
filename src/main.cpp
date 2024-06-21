@@ -10,6 +10,7 @@ struct edge_t {
     int first;
     int second;
     int index;
+    bool deleted;
     void set(int l, int r) {
         uint64_t mask = (1ull << (r + 1)) - (1ull << l);
         #ifdef __SMZ_RUNTIME_CHECK
@@ -73,6 +74,7 @@ struct query_t {
     int value;
     int index;
     int span;
+    bool dead;
     std::vector<std::pair<int, int>> path, backup;
     void apply(const std::vector<std::pair<int, int>>& new_path) {
         #ifdef __SMZ_RUNTIME_CHECK
@@ -93,7 +95,7 @@ struct query_t {
             if (node != edges[e].first && node != edges[e].second) {
                 abort();
             }
-            if (p[node] < 0) {
+            if (p[node] < 0 || edges[e].deleted) {
                 abort();
             }
             #endif
@@ -114,9 +116,6 @@ struct query_t {
             }
             #ifdef __SMZ_RUNTIME_CHECK
             if (node != edges[e].first && node != edges[e].second) {
-                abort();
-            }
-            if (p[node] < 0) {
                 abort();
             }
             #endif
@@ -230,6 +229,7 @@ namespace testcase {
             ::edges[i].first = x;
             ::edges[i].second = y;
             ::edges[i].index = i;
+            ::edges[i].deleted = false;
             ::G[x].emplace_back(y, &::edges[i]);
             ::G[y].emplace_back(x, &::edges[i]);            
         }
@@ -243,6 +243,7 @@ namespace testcase {
             ::query[i].value = V;
             ::query[i].index = i;
             ::query[i].span = R - L;
+            ::query[i].dead = false;
             ::query[i].path.clear();
             std::vector<std::pair<int, int>> path;
             for (auto e : E) {
@@ -293,25 +294,26 @@ std::vector<std::pair<int, int>> bfs(const query_t& qry) {
 std::vector<int> solve(int e) {
     int s = edges[e].first, t = edges[e].second;
     for (int i = 0; i < G[s].size(); ++i) {
-        if (G[s][i].first == t) {
+        if (G[s][i].second->index == e) {
             G[s].erase(G[s].begin() + i);
             break;
         }
     }
     std::swap(s, t);
     for (int i = 0; i < G[s].size(); ++i) {
-        if (G[s][i].first == t) {
+        if (G[s][i].second->index == e) {
             G[s].erase(G[s].begin() + i);
             break;
         }
     }
     std::vector<int> ret;
     std::vector<int> deleted = edges[e].occupied;
-    for (auto i : deleted) {
+    for (auto i : deleted) if (!query[i].dead) {
         query[i].undo();
         auto new_path = bfs(query[i]);
-        if (new_path.empty()) {
+        if (new_path.empty() || i != deleted[0]) { //todo!!! -> i != deleted[0]
             query[i].redo();
+            query[i].dead = true;
         }
         else {
             query[i].apply(new_path);
@@ -352,6 +354,7 @@ int main() {
                 io::newline();
             }
             io::flush();
+            edges[e].deleted = true;
         }
     }
     return 0;
