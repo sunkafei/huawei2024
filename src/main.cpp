@@ -1,4 +1,5 @@
 #include <bits/stdc++.h>
+constexpr int INF = 1 << 30;
 constexpr int k = 40;
 constexpr int MAXK = 44;
 constexpr int MAXN = 256;
@@ -268,9 +269,10 @@ namespace testcase {
     }
 }
 std::vector<std::pair<int, int>> bfs(const query_t& qry) {
-    static int vis[MAXN][MAXK];
+    static int vis[MAXN][MAXK], dist[MAXN];
     static std::tuple<int, int, int> father[MAXN][MAXK];
     for (int i = 1; i <= n; ++i) {
+        dist[i] = INF;
         for (int j = 1; j <= k; ++j) {
             vis[i][j] = false;
         }
@@ -279,6 +281,7 @@ std::vector<std::pair<int, int>> bfs(const query_t& qry) {
     for (int j = 1; j <= k; ++j) {
         queue.emplace(qry.from, j);
         vis[qry.from][j] = true;
+        dist[qry.from] = 0;
     }
     int channel = 1;
     while (!queue.empty()) {
@@ -289,20 +292,20 @@ std::vector<std::pair<int, int>> bfs(const query_t& qry) {
             break;
         }
         for (auto [y, info] : G[x]) {
-            const int j = i;
-            //for (int j = 1; j <= k; ++j) {
+            for (int j = 1; j <= k; ++j) {
                 if (j + qry.span > k || !info->empty(j, j + qry.span)) {
                     continue;
                 }
                 if (i != j && p[x] <= 0) {
                     continue;
                 }
-                if (!vis[y][j]) {
+                if (!vis[y][j] && dist[y] >= dist[x] + 1) {
+                    dist[y] = dist[x] + 1;
                     vis[y][j] = true;
                     queue.emplace(y, j);
                     father[y][j] = {x, i, info->index};
                 }
-            //}
+            }
         }
     }
     if (!vis[qry.to][channel]) {
