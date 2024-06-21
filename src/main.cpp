@@ -339,8 +339,8 @@ int main() {
             auto indices = solve(e);
             io::start_writing();
             io::write_int(indices.size());
+            io::newline();
             for (auto i : indices) {
-                io::start_writing();
                 io::write_int(i);
                 io::write_int(query[i].path.size());
                 io::newline();
