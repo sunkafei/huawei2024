@@ -305,12 +305,20 @@ std::vector<int> solve(int e) {
             break;
         }
     }
+    std::vector<int> ret;
     std::vector<int> deleted = edges[e].occupied;
     for (auto i : deleted) {
         query[i].undo();
-        query[i].redo();
+        auto new_path = bfs(query[i]);
+        if (new_path.empty()) {
+            query[i].redo();
+        }
+        else {
+            query[i].apply(new_path);
+            ret.push_back(i);
+        }
     }
-    return {};
+    return ret;
 }
 int main() {
     #ifdef __SMZ_RUNTIME_CHECK
