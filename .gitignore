@@ -1,0 +1,7 @@
+.xmake/
+/build/.build_cache
+/build/.deps
+/build/.objs
+/build/**/main
+.DS_Store
+.vscode
