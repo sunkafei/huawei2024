@@ -3,5 +3,6 @@
 /build/.deps
 /build/.objs
 /build/**/main
+/build/**/output.txt
 .DS_Store
 .vscode
