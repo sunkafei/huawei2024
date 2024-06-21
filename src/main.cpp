@@ -1,5 +1,6 @@
 #include <bits/stdc++.h>
 constexpr int k = 40;
+constexpr int MAXK = 44;
 constexpr int MAXN = 256;
 constexpr int MAXM = 1024;
 const int MAXJ = 6000;
@@ -93,7 +94,7 @@ struct query_t {
             if (node != edges[e].first && node != edges[e].second) {
                 abort();
             }
-            if (p[node] < 0 || edges[e].deleted) {
+            if (edges[e].deleted) { //p[node] < -1 || 
                 abort();
             }
             #endif
@@ -126,6 +127,7 @@ struct query_t {
     }
     void redo() {
         path = backup;
+        backup.clear();
         apply(path);
     }
     void plan(const std::vector<std::pair<int, int>>& new_path) {
@@ -257,6 +259,7 @@ namespace testcase {
             ::query[i].span = R - L;
             ::query[i].dead = false;
             ::query[i].path.clear();
+            ::query[i].backup.clear();
             for (auto e : E) {
                 ::query[i].path.emplace_back(e, L);
             }
@@ -265,39 +268,58 @@ namespace testcase {
     }
 }
 std::vector<std::pair<int, int>> bfs(const query_t& qry) {
-    static int vis[MAXN];
-    static std::pair<int, int> father[MAXN];
+    static int vis[MAXN][MAXK];
+    static std::tuple<int, int, int> father[MAXN][MAXK];
     for (int i = 1; i <= n; ++i) {
-        vis[i] = false;
+        for (int j = 1; j <= k; ++j) {
+            vis[i][j] = false;
+        }
     }
     std::queue<std::pair<int, int>> queue;
-    queue.emplace(qry.from, qry.l);
+    for (int j = 1; j <= k; ++j) {
+        queue.emplace(qry.from, j);
+        vis[qry.from][j] = true;
+    }
+    int channel = 1;
     while (!queue.empty()) {
         auto [x, i] = queue.front();
         queue.pop();
         if (x == qry.to) {
+            channel = i;
             break;
         }
         for (auto [y, info] : G[x]) {
-            if (!info->empty(i, i + qry.span)) {
-                continue;
-            }
-            if (!vis[y]) {
-                vis[y] = true;
-                queue.emplace(y, i);
-                father[y] = {x, info->index};
-            }
+            const int j = i;
+            //for (int j = 1; j <= k; ++j) {
+                if (j + qry.span > k || !info->empty(j, j + qry.span)) {
+                    continue;
+                }
+                if (i != j && p[x] <= 0) {
+                    continue;
+                }
+                if (!vis[y][j]) {
+                    vis[y][j] = true;
+                    queue.emplace(y, j);
+                    father[y][j] = {x, i, info->index};
+                }
+            //}
         }
     }
-    if (!vis[qry.to]) {
+    if (!vis[qry.to][channel]) {
         return {};
     }
     std::vector<std::pair<int, int>> path;
     int node = qry.to;
     while (node != qry.from) {
-        auto [prev, e] = father[node];
-        path.emplace_back(e, qry.l);
-        node = prev;
+        auto [prev_node, prev_channel, e] = father[node][channel];
+        path.emplace_back(e, channel);
+        node = prev_node;
+        channel = prev_channel;
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (node <= 0 || node > n || channel <= 0 || channel > k) {
+            abort();
+        }
+        #endif
     }
     std::reverse(path.begin(), path.end());
     return path;
@@ -334,6 +356,15 @@ std::vector<int> solve(int e) {
     for (auto i : deleted) if (!query[i].dead) {
         query[i].undo();
         auto new_path = bfs(query[i]);
+        #ifdef __SMZ_RUNTIME_CHECK
+        for (int i = 0; i < new_path.size(); ++i) {
+            for (int j = 0; j < i; ++j) {
+                if (new_path[i].first == new_path[j].first) {
+                    abort();
+                }
+            }
+        }
+        #endif
         if (new_path.empty()) {
             query[i].redo();
             query[i].dead = true;
@@ -346,6 +377,22 @@ std::vector<int> solve(int e) {
     for (auto i : ret) {
         query[i].confirm();
     }
+    #ifdef __SMZ_RUNTIME_CHECK
+    for (int i = 1; i <= q; ++i) if (!query[i].dead) {
+        std::unordered_set<int> S;
+        for (auto [e, c] : query[i].path) {
+            S.insert(e);
+            if (std::count(edges[e].occupied.begin(), edges[e].occupied.end(), i) != 1) {
+                abort();
+            }
+        }
+        for (int e = 1; e <= m; ++e) if (!S.count(e)) {
+            if (std::count(edges[e].occupied.begin(), edges[e].occupied.end(), i) > 0) {
+                abort();
+            }
+        }
+    }
+    #endif
     return ret;
 }
 int main() {
