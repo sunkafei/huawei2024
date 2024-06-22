@@ -429,7 +429,7 @@ std::vector<int> solve(int e) {
         }
         int64_t now = 0;
         for (const auto& [i, new_path] : result) {
-            now += query[i].value;
+            now += ((long long)query[i].value << 30) - new_path.size();
             query[i].cancel();
         }
         if (now > best) {
@@ -525,7 +525,7 @@ int main() {
         #endif
     }
     #ifdef __SMZ_NATIVE_TEST
-    print("Score: ", (int)score); //568340  8144468
+    print("Score: ", (int)score); //569103  8144978
     print("Runtime: ", runtime());
     #endif
     return 0;
