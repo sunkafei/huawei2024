@@ -8,6 +8,7 @@ constexpr int MAXQ = 6000;
 constexpr int MAXTIME = 85;
 constexpr int MAXT = 100;
 constexpr int MAXFAIL = 6000;
+int progress;
 int n, m, q, p[MAXN];
 using path_t = std::vector<std::pair<int, int>>;
 struct edge_t {
@@ -154,10 +155,10 @@ template<typename... T> void print(const T&... sth) {
     (..., (std::cerr << sth << " ")) << std::endl;
     #endif
 }
-auto runtime() {
+double runtime() {
 	auto now = std::chrono::steady_clock::now();
-	auto duration = std::chrono::duration_cast<std::chrono::seconds>(now - start_time);
-	return duration.count();
+	auto duration = std::chrono::duration_cast<std::chrono::microseconds>(now - start_time);
+	return duration.count() / 1e6;
 }
 namespace io {
     constexpr int MAXBUFFER = 1024 * 1024 * 8;
@@ -377,10 +378,17 @@ std::vector<int> solve(int e) {
             return query[x].value > query[y].value;
         return query[x].index > query[y].index;
     });
+    std::vector<int> indices;
+    for (int i = 0; i < deleted.size(); ++i) {
+        indices.push_back(i);
+    }
+    int64_t best = 0;
     std::vector<std::pair<int, path_t>> answer;
-    {
+    const double time_limit = MAXTIME / 6000.0 * progress;
+    do {
         std::vector<std::pair<int, path_t>> result;
-        for (auto i : deleted) {
+        for (auto idx : indices) {
+            const int i = deleted[idx];
             query[i].undo();
             auto new_path = bfs(query[i]);
             #ifdef __SMZ_RUNTIME_CHECK
@@ -419,11 +427,16 @@ std::vector<int> solve(int e) {
                 result.emplace_back(i, new_path);
             }
         }
+        int64_t now = 0;
         for (const auto& [i, new_path] : result) {
+            now += query[i].value;
             query[i].cancel();
         }
-        answer = result;
-    }
+        if (now > best) {
+            best = now;
+            answer = result;
+        }
+    } while (runtime() < time_limit && std::next_permutation(indices.begin(), indices.end()));
     static uint64_t flag[MAXQ], timestamp = 1;
     timestamp += 1;
     std::vector<int> ret;
@@ -464,7 +477,7 @@ std::vector<int> solve(int e) {
 }
 int main() {
     #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("../release/testcase1.in", "r", stdin);
+    std::ignore = freopen("../release/testcase2.in", "r", stdin);
     std::ignore = freopen("../release/output.txt", "w", stdout);
     #endif
     testcase::run();
@@ -485,6 +498,7 @@ int main() {
             if (e == -1) {
                 break;
             }
+            progress += 1;
             auto indices = solve(e);
             io::start_writing();
             io::write_int(indices.size());
@@ -511,7 +525,7 @@ int main() {
         #endif
     }
     #ifdef __SMZ_NATIVE_TEST
-    print("Score: ", (int)score); //568161  8144255
+    print("Score: ", (int)score); //568340  8144468
     print("Runtime: ", runtime());
     #endif
     return 0;
