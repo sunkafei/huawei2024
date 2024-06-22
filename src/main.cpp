@@ -8,6 +8,7 @@
 #include <queue>
 #include <cstring>
 #include <unordered_set>
+#include <bitset>
 constexpr int INF = 1 << 30;
 constexpr int k = 40;
 constexpr int MAXK = 44;
@@ -295,22 +296,23 @@ namespace testcase {
     }
 }
 path_t bfs(const query_t& qry) {
-    static int vis[MAXN][MAXK], dist[MAXN];
+    static int vis[MAXN][MAXK];
     static int first_vis[MAXN], pop_vis[MAXN][MAXK];
     static std::tuple<int, int, int> father[MAXN][MAXK];
+    static std::bitset<MAXN> state[MAXN][MAXK];
     for (int i = 1; i <= n; ++i) {
-        dist[i] = INF;
         for (int j = 1; j <= k; ++j) {
             vis[i][j] = false;
             first_vis[i] = false;
             pop_vis[i][j] = false;
+            state[i][j].reset();
         }
     }
     std::deque<std::pair<int, int>> queue;
     for (int j = 1; j + qry.span <= k; ++j) {
         queue.emplace_back(qry.from, j);
         vis[qry.from][j] = true;
-        dist[qry.from] = 0;
+        state[qry.from][j].set(qry.from);
     }
     int channel = 1;
     while (!queue.empty()) {
@@ -326,6 +328,7 @@ path_t bfs(const query_t& qry) {
             first_vis[x] = true;
             for (int j = 1; j + qry.span <= k; ++j) {
                 if(!vis[x][j]){
+                    state[x][j] = state[x][i];
                     father[x][j] = {x, i, -1};
                     queue.emplace_front(x, j);
                 }
@@ -345,8 +348,9 @@ path_t bfs(const query_t& qry) {
             if (!info->empty(i, i + qry.span)) {
                 continue;
             }
-            if (!vis[y][i] && dist[y] >= dist[x] + 1) {
-                dist[y] = dist[x] + 1;
+            if (!vis[y][i] && !state[x][i].test(y)) {
+                state[y][i] = state[x][i];
+                state[y][i].set(y);
                 vis[y][i] = true;
                 queue.emplace_back(y, i);
                 father[y][i] = {x, std::get<0>(father[x][i]) == x ? std::get<1>(father[x][i]) : i, info->index};
@@ -587,9 +591,9 @@ int main() {
 #endif
     }
 #ifdef __SMZ_NATIVE_TEST
-    print("Score: ", (int)score); //572331  8165276
+    print("Score: ", (int)score); //583811  8193148
     print("Runtime: ", runtime());
-    print("Iterations: ", iterations); //16814319 3480531
+    print("Iterations: ", iterations); //12487696 2649859
 #endif
     return 0;
 }
