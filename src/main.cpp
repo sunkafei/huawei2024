@@ -296,65 +296,89 @@ namespace testcase {
     }
 }
 path_t bfs(const query_t& qry) {
-    static int vis[MAXN][MAXK];
+    static int vis[MAXN][MAXK], dist[MAXN][MAXK];
     static int first_vis[MAXN], pop_vis[MAXN][MAXK];
     static std::tuple<int, int, int> father[MAXN][MAXK];
-    static std::bitset<MAXN> state[MAXN][MAXK];
-    for (int i = 1; i <= n; ++i) {
-        for (int j = 1; j <= k; ++j) {
-            vis[i][j] = false;
-            first_vis[i] = false;
-            pop_vis[i][j] = false;
-            state[i][j].reset();
-        }
-    }
-    std::deque<std::pair<int, int>> queue;
-    for (int j = 1; j + qry.span <= k; ++j) {
-        queue.emplace_back(qry.from, j);
-        vis[qry.from][j] = true;
-        state[qry.from][j].set(qry.from);
-    }
+    static std::bitset<MAXN> state[MAXN][MAXK], prev[MAXN][MAXK];
     int channel = 1;
-    while (!queue.empty()) {
-        auto [x, i] = queue.front();
-        queue.pop_front();
-        if (x == qry.to) {
-            channel = i;
+    for (int T = 0; T < 2; ++T) {
+        if (T == 1) {
+            for (int i = 1; i <= n; ++i) {
+                for (int j = 1; j <= k; ++j) {
+                    prev[i][j] = state[i][j];
+                }
+            }
+        }
+        for (int i = 1; i <= n; ++i) {
+            for (int j = 1; j <= k; ++j) {
+                vis[i][j] = false;
+                dist[i][j] = INF;
+                first_vis[i] = false;
+                pop_vis[i][j] = false;
+                state[i][j].reset();
+            }
+        }
+        std::deque<std::pair<int, int>> queue;
+        for (int j = 1; j + qry.span <= k; ++j) {
+            queue.emplace_back(qry.from, j);
+            vis[qry.from][j] = true;
+            dist[qry.from][j] = 0;
+            state[qry.from][j].set(qry.from);
+        }
+        while (!queue.empty()) {
+            auto [x, i] = queue.front();
+            queue.pop_front();
+            if (x == qry.to) {
+                channel = i;
+                break;
+            }
+            if(pop_vis[x][i]) continue;
+            pop_vis[x][i] = true;
+            if (p[x] > 0 && !first_vis[x]) {
+                first_vis[x] = true;
+                for (int j = 1; j + qry.span <= k; ++j) {
+                    if(!vis[x][j]){
+                        dist[x][j] = dist[x][i];
+                        state[x][j] = state[x][i];
+                        father[x][j] = {x, i, -1};
+                        queue.emplace_front(x, j);
+                    }
+                }
+                for (int j = 1; j + qry.span <= k; ++j) {
+                    if(vis[x][j]){
+                        queue.emplace_front(x, j);
+                    }
+                }
+                for (int j = 1; j + qry.span <= k; ++j) {
+                    if(!vis[x][j]){
+                        vis[x][j] = true;
+                    }
+                }
+            }
+            for (auto [y, info] : G[x]) {
+                if (!info->empty(i, i + qry.span)) {
+                    continue;
+                }
+                if (!vis[y][i] && !state[x][i].test(y)) {
+                    dist[y][i] = dist[x][i] + 1;
+                    state[y][i] = state[x][i];
+                    state[y][i].set(y);
+                    vis[y][i] = true;
+                    queue.emplace_back(y, i);
+                    father[y][i] = {x, std::get<0>(father[x][i]) == x ? std::get<1>(father[x][i]) : i, info->index};
+                }
+                else if (T == 1 && vis[y][i] && dist[y][i] == dist[x][i] + 1) {
+                    auto tmp = state[x][i];
+                    tmp.set(y);
+                    if ((tmp ^ prev[y][i]).count() >= (state[y][i] ^ prev[y][i]).count()) {
+                        state[y][i] = tmp;
+                        father[y][i] = {x, std::get<0>(father[x][i]) == x ? std::get<1>(father[x][i]) : i, info->index};
+                    }
+                }
+            }
+        }
+        if (vis[qry.to][channel]) {
             break;
-        }
-        if(pop_vis[x][i]) continue;
-        pop_vis[x][i] = true;
-        if (p[x] > 0 && !first_vis[x]) {
-            first_vis[x] = true;
-            for (int j = 1; j + qry.span <= k; ++j) {
-                if(!vis[x][j]){
-                    state[x][j] = state[x][i];
-                    father[x][j] = {x, i, -1};
-                    queue.emplace_front(x, j);
-                }
-            }
-            for (int j = 1; j + qry.span <= k; ++j) {
-                if(vis[x][j]){
-                    queue.emplace_front(x, j);
-                }
-            }
-            for (int j = 1; j + qry.span <= k; ++j) {
-                if(!vis[x][j]){
-                    vis[x][j] = true;
-                }
-            }
-        }
-        for (auto [y, info] : G[x]) {
-            if (!info->empty(i, i + qry.span)) {
-                continue;
-            }
-            if (!vis[y][i] && !state[x][i].test(y)) {
-                state[y][i] = state[x][i];
-                state[y][i].set(y);
-                vis[y][i] = true;
-                queue.emplace_back(y, i);
-                father[y][i] = {x, std::get<0>(father[x][i]) == x ? std::get<1>(father[x][i]) : i, info->index};
-            }
         }
     }
     if (!vis[qry.to][channel]) {
