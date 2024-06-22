@@ -295,41 +295,60 @@ namespace testcase {
 }
 path_t bfs(const query_t& qry) {
     static int vis[MAXN][MAXK], dist[MAXN];
+    static int first_vis[MAXN], pop_vis[MAXN][MAXK];
     static std::tuple<int, int, int> father[MAXN][MAXK];
     for (int i = 1; i <= n; ++i) {
         dist[i] = INF;
         for (int j = 1; j <= k; ++j) {
             vis[i][j] = false;
+            first_vis[i] = false;
+            pop_vis[i][j] = false;
         }
     }
-    std::queue<std::pair<int, int>> queue;
+    std::deque<std::pair<int, int>> queue;
     for (int j = 1; j <= k; ++j) {
-        queue.emplace(qry.from, j);
+        queue.emplace_back(qry.from, j);
         vis[qry.from][j] = true;
         dist[qry.from] = 0;
     }
     int channel = 1;
     while (!queue.empty()) {
         auto [x, i] = queue.front();
-        queue.pop();
+        queue.pop_front();
         if (x == qry.to) {
             channel = i;
             break;
         }
+        if(pop_vis[x][i]) continue;
+        pop_vis[x][i] = true;
+        if (p[x] > 0 && !first_vis[x]) {
+            first_vis[x] = true;
+            for (int j = 1; j + qry.span <= k; ++j) {
+                if(!vis[x][j]){
+                    father[x][j] = {x, i, -1};
+                    queue.emplace_front(x, j);
+                }
+            }
+            for (int j = 1; j + qry.span <= k; ++j) {
+                if(vis[x][j]){
+                    queue.emplace_front(x, j);
+                }
+            }
+            for (int j = 1; j + qry.span <= k; ++j) {
+                if(!vis[x][j]){
+                    vis[x][j] = true;
+                }
+            }
+        }
         for (auto [y, info] : G[x]) {
-            for (int j = 1; j <= k; ++j) {
-                if (j + qry.span > k || !info->empty(j, j + qry.span)) {
-                    continue;
-                }
-                if (i != j && p[x] <= 0) {
-                    continue;
-                }
-                if (!vis[y][j] && dist[y] >= dist[x] + 1) {
-                    dist[y] = dist[x] + 1;
-                    vis[y][j] = true;
-                    queue.emplace(y, j);
-                    father[y][j] = { x, i, info->index };
-                }
+            if (i + qry.span > k || !info->empty(i, i + qry.span)) {
+                continue;
+            }
+            if (!vis[y][i] && dist[y] >= dist[x] + 1) {
+                dist[y] = dist[x] + 1;
+                vis[y][i] = true;
+                queue.emplace_back(y, i);
+                father[y][i] = {x, std::get<0>(father[x][i]) == x ? std::get<1>(father[x][i]) : i, info->index};
             }
         }
     }
@@ -343,11 +362,11 @@ path_t bfs(const query_t& qry) {
         path.emplace_back(e, channel);
         node = prev_node;
         channel = prev_channel;
-#ifdef __SMZ_RUNTIME_CHECK
+        #ifdef __SMZ_RUNTIME_CHECK
         if (node <= 0 || node > n || channel <= 0 || channel > k) {
             abort();
         }
-#endif
+        #endif
     }
     std::reverse(path.begin(), path.end());
     return path;
@@ -509,7 +528,7 @@ std::vector<int> solve(int e) {
 }
 int main() {
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("../release/testcase1.in", "r", stdin);
+    std::ignore = freopen("../release/testcase2.in", "r", stdin);
     std::ignore = freopen("../release/output.txt", "w", stdout);
 #endif
     testcase::run();
@@ -561,9 +580,9 @@ int main() {
 #endif
     }
 #ifdef __SMZ_NATIVE_TEST
-    print("Score: ", (int)score); //571345  8148340
+    print("Score: ", (int)score); //572286  8165531
     print("Runtime: ", runtime());
-    print("Iterations: ", iterations); //1618341 457798
+    print("Iterations: ", iterations); //16528018 3384601 457798
 #endif
     return 0;
 }
