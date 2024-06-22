@@ -364,7 +364,7 @@ path_t bfs(const query_t& qry) {
         node = prev_node;
         channel = prev_channel;
         #ifdef __SMZ_RUNTIME_CHECK
-        if (node <= 0 || node > n || channel <= 0 || channel > k) {
+        if (node <= 0 || p[node] < -1 || node > n || channel <= 0 || channel > k) {
             abort();
         }
         #endif
@@ -422,6 +422,9 @@ std::vector<int> solve(int e) {
             std::vector<int> nodes(1, node);
             for (int i = 0; i < new_path.size(); ++i) {
                 const auto [e, _] = new_path[i];
+                if (p[node] < -1) {
+                    abort();
+                }
                 if (node != edges[e].first && node != edges[e].second) {
                     abort();
                 }
@@ -523,6 +526,9 @@ std::vector<int> solve(int e) {
                 abort();
             }
         }
+    }
+    for (int i = 1; i <= n; ++i) if (p[i] < 0) {
+        abort();
     }
 #endif
     return ret;
