@@ -4,7 +4,8 @@ constexpr int k = 40;
 constexpr int MAXK = 44;
 constexpr int MAXN = 256;
 constexpr int MAXM = 1024;
-const int MAXJ = 6000;
+constexpr int MAXJ = 6000;
+constexpr int MAXTIME = 85;
 int n, m, q, p[MAXN];
 struct edge_t {
     uint64_t channel;
@@ -143,6 +144,17 @@ struct query_t {
     }
 } query[MAXJ];
 std::vector<std::pair<int, edge_t*>> G[MAXN];
+const auto start_time = std::chrono::steady_clock::now();
+template<typename... T> void print(const T&... sth) {
+    #ifdef __SMZ_NATIVE_TEST
+    (..., (std::cerr << sth << " ")) << std::endl;
+    #endif
+}
+auto runtime() {
+	auto now = std::chrono::steady_clock::now();
+	auto duration = std::chrono::duration_cast<std::chrono::seconds>(now - start_time);
+	return duration.count();
+}
 namespace io {
     constexpr int MAXBUFFER = 1024 * 1024 * 8;
     char ibuffer[MAXBUFFER], *iptr, obuffer[MAXBUFFER], *optr;
@@ -360,12 +372,28 @@ std::vector<int> solve(int e) {
         query[i].undo();
         auto new_path = bfs(query[i]);
         #ifdef __SMZ_RUNTIME_CHECK
+        int node = query[i].from;
+        std::vector<int> nodes(1, node);
         for (int i = 0; i < new_path.size(); ++i) {
+            const auto [e, _] = new_path[i];
+            if (node != edges[e].first && node != edges[e].second) {
+                abort();
+            }
+            node = (node != edges[e].first ? edges[e].first : edges[e].second);
+            for (auto x : nodes) {
+                if (x == node) {
+                    abort();
+                }
+            }
+            nodes.push_back(node);
             for (int j = 0; j < i; ++j) {
                 if (new_path[i].first == new_path[j].first) {
                     abort();
                 }
             }
+        }
+        if (new_path.size() && node != query[i].to) {
+            abort();
         }
         #endif
         if (new_path.empty()) {
@@ -399,15 +427,22 @@ std::vector<int> solve(int e) {
     return ret;
 }
 int main() {
-    #ifdef __SMZ_RUNTIME_CHECK
-    std::ignore = freopen("../release/testcase1.in", "r", stdin);
+    #ifdef __SMZ_NATIVE_TEST
+    std::ignore = freopen("../release/testcase2.in", "r", stdin);
     std::ignore = freopen("../release/output.txt", "w", stdout);
     #endif
     testcase::run();
     io::start_reading();
     int T = io::read_int();
+    double score = 0;
     while (T--) {
         testcase::start();
+        #ifdef __SMZ_NATIVE_TEST
+        uint64_t total = 0, rest = 0;
+        for (int i = 1; i <= q; ++i) {
+            total += query[i].value;
+        }
+        #endif
         for (;;) {
             io::start_reading();
             int e = io::read_int();
@@ -432,6 +467,16 @@ int main() {
             io::flush();
             edges[e].deleted = true;
         }
+        #ifdef __SMZ_NATIVE_TEST
+        for (int i = 1; i <= q; ++i) if (!query[i].dead) {
+            rest += query[i].value;
+        }
+        score += rest * 10000.0 / total;
+        #endif
     }
+    #ifdef __SMZ_NATIVE_TEST
+    print("Score: ", (int)score); //568027  8142297
+    print("Runtime: ", runtime());
+    #endif
     return 0;
 }
