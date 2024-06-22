@@ -6,6 +6,7 @@
 #include <chrono>
 #include <random>
 #include <queue>
+#include <cstring>
 constexpr int INF = 1 << 30;
 constexpr int k = 40;
 constexpr int MAXK = 44;
@@ -13,6 +14,7 @@ constexpr int MAXN = 256;
 constexpr int MAXM = 1024;
 constexpr int MAXQ = 6000;
 constexpr int MAXTIME = 85;
+int64_t iterations = 0;
 int num_operations = 6000;
 int n, m, q, p[MAXN];
 using path_t = std::vector<std::pair<int, int>>;
@@ -377,13 +379,13 @@ std::vector<int> solve(int e) {
 #endif
     auto iter = std::remove_if(deleted.begin(), deleted.end(), [](int i) {
         return query[i].dead;
-        });
+    });
     deleted.erase(iter, deleted.end());
     std::sort(deleted.begin(), deleted.end(), [](int x, int y) {
         if (query[x].value != query[y].value)
             return query[x].value > query[y].value;
         return query[x].index > query[y].index;
-        });
+    });
     int64_t best = 0;
     std::vector<std::pair<int, path_t>> answer;
     std::vector<int> order;
@@ -393,6 +395,7 @@ std::vector<int> solve(int e) {
         std::vector<std::pair<int, path_t>> result;
         for (auto i : indices) {
             query[i].undo();
+            ::iterations += 1;
             auto new_path = bfs(query[i]);
 #ifdef __SMZ_RUNTIME_CHECK
             int node = query[i].from;
@@ -506,7 +509,7 @@ std::vector<int> solve(int e) {
 }
 int main() {
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("../release/testcase2.in", "r", stdin);
+    std::ignore = freopen("../release/testcase1.in", "r", stdin);
     std::ignore = freopen("../release/output.txt", "w", stdout);
 #endif
     testcase::run();
@@ -558,8 +561,9 @@ int main() {
 #endif
     }
 #ifdef __SMZ_NATIVE_TEST
-    print("Score: ", (int)score); //571390  8147617
+    print("Score: ", (int)score); //571345  8148340
     print("Runtime: ", runtime());
+    print("Iterations: ", iterations); //1618341 457798
 #endif
     return 0;
 }
