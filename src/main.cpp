@@ -294,7 +294,7 @@ namespace testcase {
         }
     }
 }
-path_t bfs(const query_t& qry) {
+path_t bfs(const query_t& qry, int d) {
     static int vis[MAXN][MAXK], dist[MAXN];
     static int first_vis[MAXN], pop_vis[MAXN][MAXK];
     static std::tuple<int, int, int> father[MAXN][MAXK];
@@ -306,8 +306,18 @@ path_t bfs(const query_t& qry) {
             pop_vis[i][j] = false;
         }
     }
+    std::vector <int> vec;
+    if(d == 0){
+        for (int j = 1; j + qry.span <= k; ++j) {
+            vec.push_back(j);
+        }
+    }else{
+        for (int j = k - qry.span; j > 0; --j) {
+            vec.push_back(j);
+        }
+    }
     std::deque<std::pair<int, int>> queue;
-    for (int j = 1; j + qry.span <= k; ++j) {
+    for (auto j : vec){
         queue.emplace_back(qry.from, j);
         vis[qry.from][j] = true;
         dist[qry.from] = 0;
@@ -323,7 +333,7 @@ path_t bfs(const query_t& qry) {
         if(pop_vis[x][i]) continue;
         if (p[x] > 0 && !first_vis[x]) {
             first_vis[x] = true;
-            for (int j = 1; j + qry.span <= k; ++j) {
+            for (auto j : vec){
                 if(!vis[x][j]){
                     vis[x][j] = true;
                     father[x][j] = {x, i, -1};
@@ -403,12 +413,14 @@ std::vector<int> solve(int e) {
     std::vector<int> order;
     const double base = runtime();
     const double time_limit = base + (MAXTIME - base) / num_operations;
+    int dir = 1;
     auto proc = [&](const std::vector<int>& indices) {
         std::vector<std::pair<int, path_t>> result;
+        dir ^= 1;
         for (auto i : indices) {
             query[i].undo();
             ::iterations += 1;
-            auto new_path = bfs(query[i]);
+            auto new_path = bfs(query[i], dir);
 #ifdef __SMZ_RUNTIME_CHECK
             int node = query[i].from;
             std::vector<int> nodes(1, node);
