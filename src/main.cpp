@@ -581,9 +581,9 @@ int main() {
 #endif
     }
 #ifdef __SMZ_NATIVE_TEST
-    print("Score: ", (int)score); //572286  8165531
+    print("Score: ", (int)score); //572331  8165276
     print("Runtime: ", runtime());
-    print("Iterations: ", iterations); //16528018 3384601 457798
+    print("Iterations: ", iterations); //16814319 3480531
 #endif
     return 0;
 }
