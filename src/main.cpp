@@ -6,9 +6,7 @@ constexpr int MAXN = 256;
 constexpr int MAXM = 1024;
 constexpr int MAXQ = 6000;
 constexpr int MAXTIME = 85;
-constexpr int MAXT = 100;
-constexpr int MAXFAIL = 6000;
-int progress;
+int num_operations = 6000;
 int n, m, q, p[MAXN];
 using path_t = std::vector<std::pair<int, int>>;
 struct edge_t {
@@ -148,6 +146,7 @@ struct query_t {
         path = backup;
     }
 } query[MAXQ];
+std::mt19937 engine;
 std::vector<std::pair<int, edge_t*>> G[MAXN];
 const auto start_time = std::chrono::steady_clock::now();
 template<typename... T> void print(const T&... sth) {
@@ -378,17 +377,14 @@ std::vector<int> solve(int e) {
             return query[x].value > query[y].value;
         return query[x].index > query[y].index;
     });
-    std::vector<int> indices;
-    for (int i = 0; i < deleted.size(); ++i) {
-        indices.push_back(i);
-    }
     int64_t best = 0;
     std::vector<std::pair<int, path_t>> answer;
-    const double time_limit = MAXTIME / 6000.0 * progress;
-    do {
+    std::vector<int> order;
+    const double base = runtime();
+    const double time_limit = base + (MAXTIME - base) / num_operations;
+    auto proc = [&](const std::vector<int>& indices) {
         std::vector<std::pair<int, path_t>> result;
-        for (auto idx : indices) {
-            const int i = deleted[idx];
+        for (auto i : indices) {
             query[i].undo();
             auto new_path = bfs(query[i]);
             #ifdef __SMZ_RUNTIME_CHECK
@@ -429,14 +425,40 @@ std::vector<int> solve(int e) {
         }
         int64_t now = 0;
         for (const auto& [i, new_path] : result) {
-            now += ((long long)query[i].value << 30) - new_path.size();
+            now += ((int64_t)query[i].value << 30) - new_path.size();
             query[i].cancel();
         }
         if (now > best) {
             best = now;
             answer = result;
+            order = indices;
         }
-    } while (runtime() < time_limit && std::next_permutation(indices.begin(), indices.end()));
+    };
+    if (deleted.size() <= 3) {
+        std::vector<int> permutation;
+        for (int i = 0; i < deleted.size(); ++i) {
+            permutation.push_back(i);
+        }
+        do {
+            std::vector<int> indices;
+            for (auto i : permutation) {
+                indices.push_back(deleted[i]);
+            }
+            proc(indices);
+        } while (runtime() < time_limit && std::next_permutation(permutation.begin(), permutation.end()));
+    }
+    else {
+        proc(deleted);
+        std::bernoulli_distribution bernoulli(1.0 / std::sqrt(deleted.size()));
+        while (runtime() < time_limit) {
+            std::vector<int> indices = order;
+            for (int i = 1; i < indices.size(); ++i) if (bernoulli(engine)) {
+                int j = std::rand() % i;
+                std::swap(indices[i], indices[j]);
+            }
+            proc(indices);
+        }
+    }
     static uint64_t flag[MAXQ], timestamp = 1;
     timestamp += 1;
     std::vector<int> ret;
@@ -484,7 +506,7 @@ int main() {
     io::start_reading();
     int T = io::read_int();
     double score = 0;
-    while (T--) {
+    while (T) {
         testcase::start();
         #ifdef __SMZ_NATIVE_TEST
         uint64_t total = 0, rest = 0;
@@ -492,13 +514,15 @@ int main() {
             total += query[i].value;
         }
         #endif
+        if (num_operations > T * m) {
+            num_operations = T * m;
+        }
         for (;;) {
             io::start_reading();
             int e = io::read_int();
             if (e == -1) {
                 break;
             }
-            progress += 1;
             auto indices = solve(e);
             io::start_writing();
             io::write_int(indices.size());
@@ -516,7 +540,9 @@ int main() {
             }
             io::flush();
             edges[e].deleted = true;
+            num_operations -= 1;
         }
+        T -= 1;
         #ifdef __SMZ_NATIVE_TEST
         for (int i = 1; i <= q; ++i) if (!query[i].dead) {
             rest += query[i].value;
@@ -525,7 +551,7 @@ int main() {
         #endif
     }
     #ifdef __SMZ_NATIVE_TEST
-    print("Score: ", (int)score); //569103  8144978
+    print("Score: ", (int)score); //571390  8147617
     print("Runtime: ", runtime());
     #endif
     return 0;
