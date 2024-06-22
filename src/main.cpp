@@ -327,7 +327,6 @@ path_t bfs(const query_t& qry) {
                 if(!vis[x][j]){
                     vis[x][j] = true;
                     father[x][j] = {x, i, -1};
-                    queue.emplace_front(x, j);
                 }
                 queue.emplace_front(x, j);
             }
