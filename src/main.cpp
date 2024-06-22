@@ -7,6 +7,7 @@
 #include <random>
 #include <queue>
 #include <cstring>
+#include <unordered_set>
 constexpr int INF = 1 << 30;
 constexpr int k = 40;
 constexpr int MAXK = 44;
