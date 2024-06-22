@@ -321,26 +321,19 @@ path_t bfs(const query_t& qry) {
             break;
         }
         if(pop_vis[x][i]) continue;
-        pop_vis[x][i] = true;
         if (p[x] > 0 && !first_vis[x]) {
             first_vis[x] = true;
             for (int j = 1; j + qry.span <= k; ++j) {
                 if(!vis[x][j]){
+                    vis[x][j] = true;
                     father[x][j] = {x, i, -1};
                     queue.emplace_front(x, j);
                 }
+                queue.emplace_front(x, j);
             }
-            for (int j = 1; j + qry.span <= k; ++j) {
-                if(vis[x][j]){
-                    queue.emplace_front(x, j);
-                }
-            }
-            for (int j = 1; j + qry.span <= k; ++j) {
-                if(!vis[x][j]){
-                    vis[x][j] = true;
-                }
-            }
+            continue;
         }
+        pop_vis[x][i] = true;
         for (auto [y, info] : G[x]) {
             if (!info->empty(i, i + qry.span)) {
                 continue;
