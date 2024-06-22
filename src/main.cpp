@@ -307,7 +307,7 @@ path_t bfs(const query_t& qry) {
         }
     }
     std::deque<std::pair<int, int>> queue;
-    for (int j = 1; j <= k; ++j) {
+    for (int j = 1; j + qry.span <= k; ++j) {
         queue.emplace_back(qry.from, j);
         vis[qry.from][j] = true;
         dist[qry.from] = 0;
@@ -342,7 +342,7 @@ path_t bfs(const query_t& qry) {
             }
         }
         for (auto [y, info] : G[x]) {
-            if (i + qry.span > k || !info->empty(i, i + qry.span)) {
+            if (!info->empty(i, i + qry.span)) {
                 continue;
             }
             if (!vis[y][i] && dist[y] >= dist[x] + 1) {
