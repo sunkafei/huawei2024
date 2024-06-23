@@ -371,7 +371,7 @@ path_t bfs(const query_t& qry, const path_t& prev) {
                 continue;
             }
             const int weight = vis[info->index] == timestamp;
-            if (dist[y][i] >= dist[x][i] + 1) {
+            if (dist[y][i] > dist[x][i] + 1) {
                 same[y][i] = same[x][i] + weight;
                 dist[y][i] = dist[x][i] + 1;
                 state[y][i] = state[x][i];
