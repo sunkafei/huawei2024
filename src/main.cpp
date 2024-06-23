@@ -96,14 +96,24 @@ struct query_t {
     int span;
     bool dead;
     path_t path, backup;
-    void apply(const path_t& new_path) const {
+    static inline int64_t vis[MAXQ];
+    static inline int64_t timestamp = 1;
+    template<bool first=true> void apply(const path_t& new_path) const {
         int node = from;
         int channel = -1;
         for (auto [e, L] : new_path) {
             edges[e].set(L, L + span);
             edges[e].insert(index);
             if (channel != -1 && channel != L) {
-                p[node] -= 1;
+                if constexpr (first) {
+                    p[node] -= 1;
+                    vis[node] = timestamp;
+                }
+                else {
+                    if (vis[node] != timestamp) {
+                        p[node] -= 1;
+                    }
+                }
             }
 #ifdef __SMZ_RUNTIME_CHECK
             if (node != edges[e].first && node != edges[e].second) {
@@ -117,14 +127,22 @@ struct query_t {
             channel = L;
         }
     }
-    void undo(const path_t& the_path) const {
+    template<bool first=true> void undo(const path_t& the_path) const {
         int node = from;
         int channel = -1;
         for (auto [e, L] : the_path) {
             edges[e].clear(L, L + span);
             edges[e].remove(index);
             if (channel != -1 && channel != L) {
-                p[node] += 1;
+                if constexpr (first) {
+                    p[node] += 1;
+                    vis[node] = timestamp;
+                }
+                else {
+                    if (vis[node] != timestamp) {
+                        p[node] += 1;
+                    }
+                }
             }
 #ifdef __SMZ_RUNTIME_CHECK
             if (node != edges[e].first && node != edges[e].second) {
@@ -147,12 +165,14 @@ struct query_t {
     }
     void plan(const path_t& new_path) {
         path = new_path;
-        apply(path);
-        apply(backup);
+        timestamp += 1;
+        apply<true>(path);
+        apply<false>(backup);
     }
     void cancel() {
-        undo(backup);
-        undo(path);
+        timestamp += 1;
+        undo<true>(backup);
+        undo<false>(path);
         apply(backup);
         path = backup;
     }
@@ -602,9 +622,9 @@ int main() {
 #endif
     }
 #ifdef __SMZ_NATIVE_TEST
-    print("Score: ", (int)score); //583811  8193148
+    print("Score: ", (int)score); //583946  8194978
     print("Runtime: ", runtime());
-    print("Iterations: ", iterations); //12487696 2649859
+    print("Iterations: ", iterations); //11834750 2421717
 #endif
     return 0;
 }
