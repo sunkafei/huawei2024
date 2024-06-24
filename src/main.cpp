@@ -334,7 +334,7 @@ path_t bfs(const query_t& qry, const path_t& prev) {
         }
     }
     std::deque<std::pair<int, int>> queue;
-    for (int j = 1; j + qry.span <= k; ++j) {
+    for (int j = k - qry.span; j > 0; --j) {
         queue.emplace_back(qry.from, j);
         same[qry.from][j] = 0;
         dist[qry.from][j] = 0;
