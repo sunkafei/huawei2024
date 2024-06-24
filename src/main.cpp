@@ -352,13 +352,15 @@ path_t bfs(const query_t& qry, const path_t& prev) {
         if (p[x] > 0 && !first_vis[x]) {
             first_vis[x] = true;
             for (int j = 1; j + qry.span <= k; ++j) {
-                if(dist[x][j] > dist[x][i]){
+                if(dist[x][j] > dist[x][i] + 1){
                     same[x][j] = same[x][i];
-                    dist[x][j] = dist[x][i];
+                    dist[x][j] = dist[x][i] + 1;
                     state[x][j] = state[x][i];
                     father[x][j] = {x, i, -1};
+                    queue.emplace_back(x, j);
                 }
-                queue.emplace_front(x, j);
+                else
+                    queue.emplace_front(x, j);
             }
             continue;
         }
