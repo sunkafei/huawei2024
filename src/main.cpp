@@ -440,7 +440,7 @@ std::vector<int> solve(int e) {
             return query[x].value > query[y].value;
         return query[x].index > query[y].index;
     });
-    int64_t best = 0;
+    int64_t best = -1;
     std::vector<std::pair<int, path_t>> answer;
     std::vector<int> order;
     const double base = runtime();
