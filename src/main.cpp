@@ -440,7 +440,7 @@ std::vector<int> solve(int e) {
             return query[x].value > query[y].value;
         return query[x].index > query[y].index;
     });
-    int64_t best = -1;
+    std::tuple<int64_t, int64_t> best{-1, 0};
     std::vector<std::pair<int, path_t>> answer;
     std::vector<int> order;
     const double base = runtime();
@@ -491,11 +491,13 @@ std::vector<int> solve(int e) {
                 result.emplace_back(i, new_path);
             }
         }
-        int64_t now = 0;
+        int64_t sum_value = 0, sum_length = 0;
         for (const auto& [i, new_path] : result) {
-            now += ((int64_t)query[i].value << 30) - new_path.size();
+            sum_value += query[i].value;
+            sum_length += new_path.size();
             query[i].cancel();
         }
+        std::tuple<int64_t, int64_t> now{sum_value, -sum_length};
         if (now > best) {
             best = now;
             answer = result;
