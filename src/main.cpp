@@ -494,7 +494,7 @@ std::vector<int> solve(int e) {
         int64_t sum_value = 0, sum_length = 0;
         for (const auto& [i, new_path] : result) {
             sum_value += query[i].value;
-            sum_length += new_path.size();
+            sum_length += new_path.size() * (query[i].span + 1);
             query[i].cancel();
         }
         std::tuple<int64_t, int64_t> now{sum_value, -sum_length};
