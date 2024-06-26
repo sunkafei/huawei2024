@@ -7,3 +7,4 @@
 /build/**/output.txt
 .DS_Store
 .vscode
+/release
