@@ -247,15 +247,30 @@ namespace testcase {
         io::start_reading();
         n = io::read_int();
         m = io::read_int();
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (n < 2 || n > 200 || m < 1 || m > 1000) {
+            abort();
+        }
+        #endif
         io::start_reading();
         for (int i = 1; i <= n; ++i) {
             p[i] = io::read_int();
+            #ifdef __SMZ_RUNTIME_CHECK
+            if (p[i] < 0 || p[i] > 20) {
+                abort();
+            }
+            #endif
         }
         for (int i = 1; i <= m; ++i) {
             io::start_reading();
             int x = io::read_int();
             int y = io::read_int();
             nodes[i] = { x, y };
+            #ifdef __SMZ_RUNTIME_CHECK
+            if (x < 1 || x > n || y < 1 || y > n || x == y) {
+                abort();
+            }
+            #endif
         }
         io::start_reading();
         q = io::read_int();
@@ -263,17 +278,27 @@ namespace testcase {
             io::start_reading();
             int s = io::read_int();
             int t = io::read_int();
-            int m = io::read_int();
+            int length = io::read_int();
             int L = io::read_int();
             int R = io::read_int();
             int V = io::read_int();
+            #ifdef __SMZ_RUNTIME_CHECK
+            if (s < 1 || s > n || t < 1 || t > n || length < 0 || L < 0 || R > 40 || L > R || V < 0) {
+                abort();
+            }
+            #endif
             io::start_reading();
             std::vector<int> E;
-            for (int i = 1; i <= m; ++i) {
+            for (int i = 1; i <= length; ++i) {
                 int e = io::read_int();
                 E.push_back(e);
+                #ifdef __SMZ_RUNTIME_CHECK
+                if (e < 1 || e > m) {
+                    abort();
+                }
+                #endif
             }
-            business.emplace_back(s, t, m, L, R, V, std::move(E));
+            business.emplace_back(s, t, length, L, R, V, std::move(E));
         }
     }
     void start() {
