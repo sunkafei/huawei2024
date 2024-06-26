@@ -185,6 +185,51 @@ template<typename... T> void print(const T&... sth) {
     (..., (std::cerr << sth << " ")) << std::endl;
 #endif
 }
+template<typename T, int maxsize> class deque {
+private:
+    T data[maxsize * 2];
+    int L = maxsize;
+    int R = maxsize;
+public:
+    T& front() {
+        return data[L];
+    }
+    T& back() {
+        return data[R - 1];
+    }
+    int size() const {
+        return R - L;
+    }
+    bool empty() const {
+        return size() == 0;
+    }
+    void clear() {
+        L = maxsize;
+        R = maxsize;
+    }
+    void push_front(const T& value) {
+        L -= 1;
+        data[L] = value;
+    }
+    void push_back(const T& value) {
+        data[R] = value;
+        R += 1;
+    }
+    void pop_front() {
+        L += 1;
+    }
+    void pop_back() {
+        R -= 1;
+    }
+    template<typename... F> void emplace_back(F&&... args) {
+        new(&data[R]) T(std::forward<F>(args)...);
+        R += 1;
+    }
+    template<typename... F> void emplace_front(F&&... args) {
+        L -= 1;
+        new(&data[L]) T(std::forward<F>(args)...);
+    }
+};
 double runtime() {
     auto now = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(now - start_time);
@@ -358,7 +403,7 @@ path_t bfs(const query_t& qry, const path_t& prev) {
             state[i][j].reset();
         }
     }
-    std::deque<std::pair<int, int>> queue;
+    static deque<std::pair<int, int>, MAXN * MAXK> queue; queue.clear();
     for (int j = k - qry.span; j > 0; --j) {
         queue.emplace_back(qry.from, j);
         same[qry.from][j] = 0;
@@ -649,9 +694,9 @@ int main() {
 #endif
     }
 #ifdef __SMZ_NATIVE_TEST
-    print("Score: ", (int)score); //583946  8194978
+    print("Score: ", (int)score); //8203787
     print("Runtime: ", runtime());
-    print("Iterations: ", iterations); //11834750 2421717
+    print("Iterations: ", iterations); //2813126
 #endif
     return 0;
 }
