@@ -15,7 +15,7 @@ constexpr int MAXK = 44;
 constexpr int MAXN = 256;
 constexpr int MAXM = 1024;
 constexpr int MAXQ = 6000;
-constexpr int MAXTIME = 85;
+constexpr int MAXTIME = 89;
 int64_t iterations = 0;
 int num_operations = 6000;
 int n, m, q, p[MAXN];
@@ -646,7 +646,7 @@ std::vector<int> solve(int e) {
 }
 int main() {
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("../release/testcase2.in", "r", stdin);
+    std::ignore = freopen("../release/large1.in", "r", stdin);
     std::ignore = freopen("../release/output.txt", "w", stdout);
 #endif
     testcase::run();
@@ -698,9 +698,9 @@ int main() {
 #endif
     }
 #ifdef __SMZ_NATIVE_TEST
-    print("Score: ", (int)score); //8203787
+    print("Score: ", (int)score);       //461831
     print("Runtime: ", runtime());
-    print("Iterations: ", iterations); //3114031
+    print("Iterations: ", iterations);  //541041
 #endif
     return 0;
 }
