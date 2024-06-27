@@ -385,96 +385,100 @@ namespace testcase {
         }
     }
 }
-path_t bfs(const query_t& qry, const path_t& prev) {
-    static int dist[MAXN][MAXK], same[MAXN][MAXK];
-    static int first_vis[MAXN], pop_vis[MAXN][MAXK];
-    static std::tuple<int, int, int> father[MAXN][MAXK];
-    static std::bitset<MAXN> state[MAXN][MAXK];
-    static int64_t vis[MAXQ], timestamp = 1; timestamp += 1;
-    for (auto [e, _] : prev) {
-        vis[e] = timestamp;
-    }
-    for (int i = 1; i <= n; ++i) {
-        for (int j = 1; j <= k; ++j) {
-            same[i][j] = 0;
-            dist[i][j] = INF;
-            first_vis[i] = false;
-            pop_vis[i][j] = false;
-            state[i][j].reset();
+namespace search {
+    int64_t vis[MAXQ], timestamp = 1;
+    int dist[MAXN][MAXK], same[MAXN][MAXK];
+    int first_vis[MAXN], pop_vis[MAXN][MAXK];
+    std::tuple<int, int, int> father[MAXN][MAXK];
+    deque<std::pair<int, int>, MAXN * MAXK> queue;
+    path_t search(const query_t& qry, const path_t& prev) {
+        static std::bitset<MAXN> state[MAXN][MAXK];
+        timestamp += 1;
+        queue.clear();
+        for (auto [e, _] : prev) {
+            vis[e] = timestamp;
         }
-    }
-    static deque<std::pair<int, int>, MAXN * MAXK> queue; queue.clear();
-    for (int j = k - qry.span; j > 0; --j) {
-        queue.emplace_back(qry.from, j);
-        same[qry.from][j] = 0;
-        dist[qry.from][j] = 0;
-        state[qry.from][j].set(qry.from);
-    }
-    int channel = 1;
-    while (!queue.empty()) {
-        auto [x, i] = queue.front();
-        queue.pop_front();
-        if (x == qry.to) {
-            channel = i;
-            break;
+        for (int i = 1; i <= n; ++i) {
+            for (int j = 1; j <= k; ++j) {
+                same[i][j] = 0;
+                dist[i][j] = INF;
+                first_vis[i] = false;
+                pop_vis[i][j] = false;
+                state[i][j].reset();
+            }
         }
-        if(pop_vis[x][i]) continue;
-        if (p[x] > 0 && !first_vis[x]) {
-            first_vis[x] = true;
-            for (int j = 1; j + qry.span <= k; ++j) {
-                if(dist[x][j] > dist[x][i]){
-                    same[x][j] = same[x][i];
-                    dist[x][j] = dist[x][i];
-                    state[x][j] = state[x][i];
-                    father[x][j] = {x, i, -1};
+        for (int j = k - qry.span; j > 0; --j) {
+            queue.emplace_back(qry.from, j);
+            same[qry.from][j] = 0;
+            dist[qry.from][j] = 0;
+            state[qry.from][j].set(qry.from);
+        }
+        int channel = 1;
+        while (!queue.empty()) {
+            auto [x, i] = queue.front();
+            queue.pop_front();
+            if (x == qry.to) {
+                channel = i;
+                break;
+            }
+            if(pop_vis[x][i]) continue;
+            if (p[x] > 0 && !first_vis[x]) {
+                first_vis[x] = true;
+                for (int j = 1; j + qry.span <= k; ++j) {
+                    if(dist[x][j] > dist[x][i]){
+                        same[x][j] = same[x][i];
+                        dist[x][j] = dist[x][i];
+                        state[x][j] = state[x][i];
+                        father[x][j] = {x, i, -1};
+                    }
+                    queue.emplace_front(x, j);
                 }
-                queue.emplace_front(x, j);
-            }
-            continue;
-        }
-        pop_vis[x][i] = true;
-        for (auto [y, info] : G[x]) {
-            if (!info->empty(i, i + qry.span)) {
                 continue;
             }
-            if (state[x][i].test(y)) {
-                continue;
-            }
-            const int weight = vis[info->index] == timestamp;
-            if (dist[y][i] > dist[x][i] + 1) {
-                same[y][i] = same[x][i] + weight;
-                dist[y][i] = dist[x][i] + 1;
-                state[y][i] = state[x][i];
-                state[y][i].set(y);
-                queue.emplace_back(y, i);
-                father[y][i] = {x, std::get<0>(father[x][i]) == x ? std::get<1>(father[x][i]) : i, info->index};
-            }
-            else if (dist[y][i] == dist[x][i] + 1 && same[y][i] < same[x][i] + weight) {
-                same[y][i] = same[x][i] + weight;
-                state[y][i] = state[x][i];
-                state[y][i].set(y);
-                father[y][i] = {x, std::get<0>(father[x][i]) == x ? std::get<1>(father[x][i]) : i, info->index};
+            pop_vis[x][i] = true;
+            for (auto [y, info] : G[x]) {
+                if (!info->empty(i, i + qry.span)) {
+                    continue;
+                }
+                if (state[x][i].test(y)) {
+                    continue;
+                }
+                const int weight = vis[info->index] == timestamp;
+                if (dist[y][i] > dist[x][i] + 1) {
+                    same[y][i] = same[x][i] + weight;
+                    dist[y][i] = dist[x][i] + 1;
+                    state[y][i] = state[x][i];
+                    state[y][i].set(y);
+                    queue.emplace_back(y, i);
+                    father[y][i] = {x, std::get<0>(father[x][i]) == x ? std::get<1>(father[x][i]) : i, info->index};
+                }
+                else if (dist[y][i] == dist[x][i] + 1 && same[y][i] < same[x][i] + weight) {
+                    same[y][i] = same[x][i] + weight;
+                    state[y][i] = state[x][i];
+                    state[y][i].set(y);
+                    father[y][i] = {x, std::get<0>(father[x][i]) == x ? std::get<1>(father[x][i]) : i, info->index};
+                }
             }
         }
-    }
-    if (dist[qry.to][channel] == INF) {
-        return {};
-    }
-    path_t path;
-    int node = qry.to;
-    while (node != qry.from) {
-        auto [prev_node, prev_channel, e] = father[node][channel];
-        path.emplace_back(e, channel);
-        node = prev_node;
-        channel = prev_channel;
-        #ifdef __SMZ_RUNTIME_CHECK
-        if (node <= 0 || p[node] < -1 || node > n || channel <= 0 || channel > k) {
-            abort();
+        if (dist[qry.to][channel] == INF) {
+            return {};
         }
-        #endif
+        path_t path;
+        int node = qry.to;
+        while (node != qry.from) {
+            auto [prev_node, prev_channel, e] = father[node][channel];
+            path.emplace_back(e, channel);
+            node = prev_node;
+            channel = prev_channel;
+            #ifdef __SMZ_RUNTIME_CHECK
+            if (node <= 0 || p[node] < -1 || node > n || channel <= 0 || channel > k) {
+                abort();
+            }
+            #endif
+        }
+        std::reverse(path.begin(), path.end());
+        return path;
     }
-    std::reverse(path.begin(), path.end());
-    return path;
 }
 std::vector<int> solve(int e) {
     int s = edges[e].first, t = edges[e].second;
@@ -521,7 +525,7 @@ std::vector<int> solve(int e) {
             auto prev = query[i].path;
             query[i].undo();
             ::iterations += 1;
-            auto new_path = bfs(query[i], prev);
+            auto new_path = search::search(query[i], prev);
 #ifdef __SMZ_RUNTIME_CHECK
             int node = query[i].from;
             std::vector<int> nodes(1, node);
@@ -696,7 +700,7 @@ int main() {
 #ifdef __SMZ_NATIVE_TEST
     print("Score: ", (int)score); //8203787
     print("Runtime: ", runtime());
-    print("Iterations: ", iterations); //2813126
+    print("Iterations: ", iterations); //3114031
 #endif
     return 0;
 }
