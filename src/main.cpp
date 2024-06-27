@@ -45,13 +45,7 @@ struct edge_t {
 #endif
         channel &= ~mask;
     }
-    bool empty(int l, int r) {
-        uint64_t mask = (1ull << (r + 1)) - (1ull << l);
-#ifdef __SMZ_RUNTIME_CHECK
-        if (l <= 0 || r > k || l > r) {
-            abort();
-        }
-#endif
+    bool empty(uint64_t mask) {
         return (channel & mask) == 0;
     }
     void remove(int x) {
@@ -201,7 +195,7 @@ public:
         return R - L;
     }
     bool empty() const {
-        return size() == 0;
+        return L == R;
     }
     void clear() {
         L = maxsize;
@@ -436,8 +430,9 @@ namespace search {
                 continue;
             }
             pop_vis[x][i] = true;
+            const uint64_t mask = (1ull << (i + qry.span + 1)) - (1ull << i);
             for (auto [y, info] : G[x]) {
-                if (!info->empty(i, i + qry.span)) {
+                if (!info->empty(mask)) {
                     continue;
                 }
                 if (state[x][i].test(y)) {
@@ -698,9 +693,9 @@ int main() {
 #endif
     }
 #ifdef __SMZ_NATIVE_TEST
-    print("Score: ", (int)score);       //461831
+    print("Score: ", (int)score);       //461825
     print("Runtime: ", runtime());
-    print("Iterations: ", iterations);  //541041
+    print("Iterations: ", iterations);  //587033
 #endif
     return 0;
 }
