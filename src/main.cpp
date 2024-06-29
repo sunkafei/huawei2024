@@ -405,6 +405,25 @@ namespace testcase {
         preprocess();
     }
     void start() {
+        #ifdef __SMZ_RUNTIME_CHECK
+        static int64_t id = 0;
+        if (id) {
+            for (int i = 1; i <= q; ++i) {
+                query[i].undo();
+            }
+            for (int i = 1; i <= n; ++i) {
+                if (p[i] != ::p[i]) {
+                    abort();
+                }
+            }
+            for (int i = 1; i <= m; ++i) {
+                if (edges[i].occupied.size() || edges[i].channel) {
+                    abort();
+                }
+            }
+        }
+        id += 1;
+        #endif
         ::n = n;
         ::m = m;
         for (int i = 1; i <= n; ++i) {
