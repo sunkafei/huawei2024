@@ -468,7 +468,7 @@ namespace search {
     int dist[MAXN][MAXK], same[MAXN][MAXK];
     std::tuple<int, int, int> father[MAXN][MAXK];
     std::bitset<MAXN> state[MAXN][MAXK];
-    deque_t<std::pair<int, int>, MAXN * MAXK * 2> A, B1, B2, C;
+    deque_t<int, MAXN * MAXK * 2> A, B1, B2, C;
     inline path_t astar(const query_t& qry, const path_t& prev) noexcept {
         timestamp += 2;
         A.clear(); B1.clear(); B2.clear(); C.clear();
@@ -484,7 +484,7 @@ namespace search {
             dist[qry.from][j] = 0;
             state[qry.from][j].reset();
             state[qry.from][j].set(qry.from);
-            A.emplace_back(qry.from | (j << 12), 0);
+            A.push_back(qry.from | (j << 12));
         }
         int channel = -1;
         while (A.size() || B1.size() || B2.size() || C.size()) {
@@ -510,19 +510,18 @@ namespace search {
 				}
 				B1.clear();
 				B2.clear();
-				swap(B2, C);
+				std::swap(B2, C);
 			}
-			auto [tmp, distance] = A.back(); A.pop_back();
+			auto tmp = A.back(); A.pop_back();
 			int x = tmp & 0xFFF, i = tmp >> 12;
-			if (distance != dist[x][i]) {
-				continue;
-			}
+            if (visit[x][i] > timestamp) {
+                continue;
+            }
             if (x == qry.to) [[unlikely]] {
                 channel = i;
                 break;
             }
             int base = dist[x][i] + baseline[x][qry.to];
-            if (visit[x][i] > timestamp) continue;
             if (p[x] > 0 && !first_vis[x]) {
                 first_vis[x] = true;
                 for (int j = 1; j + qry.span <= k; ++j) {
@@ -533,7 +532,7 @@ namespace search {
                         state[x][j] = state[x][i];
                         father[x][j] = {x, i, -1};
                     }
-                    A.push_back({ x | (j << 12), dist[x][j] });
+                    A.push_back(x | (j << 12));
                 }
                 continue;
             }
@@ -559,10 +558,10 @@ namespace search {
                     father[y][i] = {x, std::get<0>(father[x][i]) == x ? std::get<1>(father[x][i]) : i, info->index};
                     int estimate = dist[y][i] + baseline[y][qry.to];
                     if (estimate == base) {
-						A.push_back({ y | (i << 12), dist[y][i] });
+						A.push_back(y | (i << 12));
 					}
 					else if (estimate == base + 1) {
-						B1.push_back({ y | (i << 12), dist[y][i] });
+						B1.push_back(y | (i << 12));
 					}
 					else {
                         #ifdef __SMZ_RUNTIME_CHECK
@@ -570,7 +569,7 @@ namespace search {
                             abort();
                         }
                         #endif
-						C.push_back({ y | (i << 12), dist[y][i] });
+						C.push_back(y | (i << 12));
 					}
                 }
                 else if (dist[y][i] == dist[x][i] + 1 && same[y][i] < same[x][i] + weight) {
@@ -819,9 +818,9 @@ int main() {
 #endif
     }
 #ifdef __SMZ_NATIVE_TEST
-    print("Score: ", (int)score);       //8204085   488636
+    print("Score: ", (int)score);       //8202638   480389
     print("Runtime: ", runtime());
-    print("Iterations: ", iterations);  //34641659  7386254
+    print("Iterations: ", iterations);  //35681204  8320370
 #endif
     return 0;
 }
