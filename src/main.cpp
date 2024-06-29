@@ -382,21 +382,18 @@ namespace testcase {
 namespace search {
     int64_t last[MAXQ], visit[MAXN][MAXK], timestamp = 1;
     int dist[MAXN][MAXK], same[MAXN][MAXK];
-    int first_vis[MAXN], pop_vis[MAXN][MAXK];
+    int first_vis[MAXN];
     std::tuple<int, int, int> father[MAXN][MAXK];
     deque<std::pair<int, int>, MAXN * MAXK> queue;
     path_t search(const query_t& qry, const path_t& prev) {
         static std::bitset<MAXN> state[MAXN][MAXK];
-        timestamp += 1;
+        timestamp += 2;
         queue.clear();
         for (auto [e, _] : prev) {
             last[e] = timestamp;
         }
         for (int i = 1; i <= n; ++i) {
             first_vis[i] = false;
-            for (int j = 1; j <= k; ++j) {
-                pop_vis[i][j] = false;
-            }
         }
         for (int j = k - qry.span; j > 0; --j) {
             visit[qry.from][j] = timestamp;
@@ -406,7 +403,7 @@ namespace search {
             state[qry.from][j].set(qry.from);
             queue.emplace_back(qry.from, j);
         }
-        int channel = 1;
+        int channel = -1;
         while (!queue.empty()) {
             auto [x, i] = queue.front();
             queue.pop_front();
@@ -414,11 +411,11 @@ namespace search {
                 channel = i;
                 break;
             }
-            if(pop_vis[x][i]) continue;
+            if (visit[x][i] > timestamp) continue;
             if (p[x] > 0 && !first_vis[x]) {
                 first_vis[x] = true;
                 for (int j = 1; j + qry.span <= k; ++j) {
-                    if (visit[x][j] != timestamp || dist[x][j] > dist[x][i]) {
+                    if (visit[x][j] < timestamp || dist[x][j] > dist[x][i]) {
                         visit[x][j] = timestamp;
                         same[x][j] = same[x][i];
                         dist[x][j] = dist[x][i];
@@ -429,7 +426,7 @@ namespace search {
                 }
                 continue;
             }
-            pop_vis[x][i] = true;
+            visit[x][i] = timestamp + 1;
             const uint64_t mask = (1ull << (i + qry.span + 1)) - (1ull << i);
             for (auto [y, info] : G[x]) {
                 if (!info->empty(mask)) {
@@ -439,7 +436,7 @@ namespace search {
                     continue;
                 }
                 const int weight = last[info->index] == timestamp;
-                if (visit[y][i] != timestamp || dist[y][i] > dist[x][i] + 1) {
+                if (visit[y][i] < timestamp || dist[y][i] > dist[x][i] + 1) {
                     visit[y][i] = timestamp;
                     same[y][i] = same[x][i] + weight;
                     dist[y][i] = dist[x][i] + 1;
@@ -456,7 +453,7 @@ namespace search {
                 }
             }
         }
-        if (visit[qry.to][channel] != timestamp) {
+        if (channel == -1) {
             return {};
         }
         path_t path;
@@ -694,9 +691,9 @@ int main() {
 #endif
     }
 #ifdef __SMZ_NATIVE_TEST
-    print("Score: ", (int)score);       //461825
+    print("Score: ", (int)score);       //8203446
     print("Runtime: ", runtime());
-    print("Iterations: ", iterations);  //587033
+    print("Iterations: ", iterations);  //3725723
 #endif
     return 0;
 }
