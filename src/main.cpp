@@ -134,9 +134,12 @@ public:
         if (data[index[value]].second != value) {
             abort();
         }
+        data[sz] = {-1, -1};
         #endif
+        const int i = index[value];
         sz -= 1;
-        std::swap(data[index[value]], data[sz]);
+        std::swap(data[i], data[sz]);
+        index[data[i].second] = i;
     }
     void push_back(const T& value) {
         #ifdef __SMZ_RUNTIME_CHECK
@@ -809,7 +812,7 @@ std::vector<int> solve(int e) {
 }
 int main() {
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("../release/testcase2.in", "r", stdin);
+    std::ignore = freopen("../release/big.in", "r", stdin);
     std::ignore = freopen("../release/output.txt", "w", stdout);
 #endif
     testcase::run();
