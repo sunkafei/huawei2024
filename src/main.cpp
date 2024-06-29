@@ -385,7 +385,7 @@ namespace search {
     int first_vis[MAXN];
     std::tuple<int, int, int> father[MAXN][MAXK];
     deque<std::pair<int, int>, MAXN * MAXK> queue;
-    path_t search(const query_t& qry, const path_t& prev) {
+    inline path_t search(const query_t& qry, const path_t& prev) noexcept {
         static std::bitset<MAXN> state[MAXN][MAXK];
         timestamp += 2;
         queue.clear();
@@ -407,7 +407,7 @@ namespace search {
         while (!queue.empty()) {
             auto [x, i] = queue.front();
             queue.pop_front();
-            if (x == qry.to) {
+            if (x == qry.to) [[unlikely]] {
                 channel = i;
                 break;
             }
@@ -432,7 +432,7 @@ namespace search {
                 if (!info->empty(mask)) {
                     continue;
                 }
-                if (state[x][i].test(y)) {
+                if (state[x][i].test(y)) [[unlikely]] {
                     continue;
                 }
                 const int weight = last[info->index] == timestamp;
