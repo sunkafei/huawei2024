@@ -20,6 +20,152 @@ int64_t iterations = 0;
 int num_operations = 6000;
 int n, m, q, p[MAXN];
 using path_t = std::vector<std::pair<int, int>>;
+const auto start_time = std::chrono::steady_clock::now();
+template<typename... T> void print(const T&... sth) {
+#ifdef __SMZ_NATIVE_TEST
+    (..., (std::cerr << sth << " ")) << std::endl;
+#endif
+}
+template<typename T, int maxsize> class deque_t {
+private:
+    T* data;
+    int L = maxsize;
+    int R = maxsize;
+public:
+    deque_t() : data(new T[maxsize * 2]) {}
+    T& front() {
+        return data[L];
+    }
+    T& back() {
+        return data[R - 1];
+    }
+    int size() const {
+        return R - L;
+    }
+    bool empty() const {
+        return L == R;
+    }
+    void clear() {
+        L = maxsize;
+        R = maxsize;
+    }
+    void push_front(const T& value) {
+        L -= 1;
+        data[L] = value;
+    }
+    void push_back(const T& value) {
+        data[R] = value;
+        R += 1;
+    }
+    void pop_front() {
+        L += 1;
+    }
+    void pop_back() {
+        R -= 1;
+    }
+    template<typename... F> void emplace_back(F&&... args) {
+        new(&data[R]) T(std::forward<F>(args)...);
+        R += 1;
+    }
+    template<typename... F> void emplace_front(F&&... args) {
+        L -= 1;
+        new(&data[L]) T(std::forward<F>(args)...);
+    }
+};
+template<typename T, int maxsize> class queue_t {
+private:
+    T* data;
+    int L = 0;
+    int R = 0;
+public:
+    queue_t() : data(new T[maxsize]) {}
+    ~queue_t() {
+        delete[] data;
+    }    
+    T& front() {
+        return data[L];
+    }
+    int size() const {
+        return R - L;
+    }
+    bool empty() const {
+        return L == R;
+    }
+    void clear() {
+        L = 0;
+        R = 0;
+    }
+    void push(const T& value) {
+        data[R] = value;
+        R += 1;
+    }
+    template<typename... F> void emplace(F&&... args) {
+        new(&data[R]) T(std::forward<F>(args)...);
+        R += 1;
+    }
+    void pop() {
+        L += 1;
+    }
+};
+template<typename T, int maxsize> class vector_t {
+private:
+    T* data;
+    int* index;
+    int sz;
+public:
+    vector_t() : index(new int[maxsize]), data(new T[maxsize]) {}
+    int size() const {
+        return sz;
+    }
+    bool empty() const {
+        return sz == 0;
+    }
+    void clear() {
+        sz = 0;
+    }
+    void erase(typename T::second_type value) {
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (value < 0 || value >= maxsize) {
+            abort();
+        }
+        if (index[value] < 0 || index[value] >= sz) {
+            abort();
+        }
+        if (data[index[value]].second != value) {
+            abort();
+        }
+        #endif
+        sz -= 1;
+        std::swap(data[index[value]], data[sz]);
+    }
+    void push_back(const T& value) {
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (value.second < 0 || value.second >= maxsize) {
+            abort();
+        }
+        #endif
+        index[value.second] = sz;
+        data[sz] = value;
+        sz += 1;
+    }
+    template<typename... F> void emplace_back(F&&... args) {
+        push_back(T{args...});
+    }
+    T* begin() {
+        return data;
+    }
+    T* end() {
+        return data + sz;
+    }
+    T& operator[] (int i) {
+        return data[i];
+    }
+};
+double runtime() {
+    auto now = std::chrono::steady_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(now - start_time);
+    return duration.count() / 1e6;
+}
 struct edge_t {
     uint64_t channel;
     std::vector<int> occupied;
@@ -173,99 +319,7 @@ struct query_t {
 } query[MAXQ];
 std::mt19937 engine;
 int baseline[MAXN][MAXN];
-std::vector<std::pair<int, edge_t*>> G[MAXN];
-const auto start_time = std::chrono::steady_clock::now();
-template<typename... T> void print(const T&... sth) {
-#ifdef __SMZ_NATIVE_TEST
-    (..., (std::cerr << sth << " ")) << std::endl;
-#endif
-}
-template<typename T, int maxsize> class deque_t {
-private:
-    T* data;
-    int L = maxsize;
-    int R = maxsize;
-public:
-    deque_t() : data(new T[maxsize * 2]) {}
-    T& front() {
-        return data[L];
-    }
-    T& back() {
-        return data[R - 1];
-    }
-    int size() const {
-        return R - L;
-    }
-    bool empty() const {
-        return L == R;
-    }
-    void clear() {
-        L = maxsize;
-        R = maxsize;
-    }
-    void push_front(const T& value) {
-        L -= 1;
-        data[L] = value;
-    }
-    void push_back(const T& value) {
-        data[R] = value;
-        R += 1;
-    }
-    void pop_front() {
-        L += 1;
-    }
-    void pop_back() {
-        R -= 1;
-    }
-    template<typename... F> void emplace_back(F&&... args) {
-        new(&data[R]) T(std::forward<F>(args)...);
-        R += 1;
-    }
-    template<typename... F> void emplace_front(F&&... args) {
-        L -= 1;
-        new(&data[L]) T(std::forward<F>(args)...);
-    }
-};
-template<typename T, int maxsize> class queue_t {
-private:
-    T* data;
-    int L = 0;
-    int R = 0;
-public:
-    queue_t() : data(new T[maxsize]) {}
-    ~queue_t() {
-        delete[] data;
-    }    
-    T& front() {
-        return data[L];
-    }
-    int size() const {
-        return R - L;
-    }
-    bool empty() const {
-        return L == R;
-    }
-    void clear() {
-        L = 0;
-        R = 0;
-    }
-    void push(const T& value) {
-        data[R] = value;
-        R += 1;
-    }
-    template<typename... F> void emplace(F&&... args) {
-        new(&data[R]) T(std::forward<F>(args)...);
-        R += 1;
-    }
-    void pop() {
-        L += 1;
-    }
-};
-double runtime() {
-    auto now = std::chrono::steady_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(now - start_time);
-    return duration.count() / 1e6;
-}
+vector_t<std::pair<int, int>, MAXM> G[MAXN];
 namespace io {
     constexpr int MAXBUFFER = 1024 * 1024 * 8;
     char ibuffer[MAXBUFFER], * iptr, obuffer[MAXBUFFER], * optr;
@@ -439,8 +493,8 @@ namespace testcase {
             ::edges[i].second = y;
             ::edges[i].index = i;
             ::edges[i].deleted = false;
-            ::G[x].emplace_back(y, &::edges[i]);
-            ::G[y].emplace_back(x, &::edges[i]);
+            ::G[x].emplace_back(y, i);
+            ::G[y].emplace_back(x, i);
         }
         ::q = q;
         for (int i = 1; i <= business.size(); ++i) {
@@ -538,8 +592,8 @@ namespace search {
             }
             visit[x][i] = timestamp + 1;
             const uint64_t mask = (1ull << (i + qry.span + 1)) - (1ull << i);
-            for (auto [y, info] : G[x]) {
-                if (!info->empty(mask)) {
+            for (auto [y, e] : G[x]) {
+                if (!edges[e].empty(mask)) {
                     continue;
                 }
                 if (state[x][i].test(y)) [[unlikely]] {
@@ -549,13 +603,13 @@ namespace search {
                     visit[y][i] = timestamp;
                     dist[y][i] = INF;
                 }
-                const int weight = last[info->index] == timestamp;
+                const int weight = last[e] == timestamp;
                 if (dist[y][i] > dist[x][i] + 1) {
                     same[y][i] = same[x][i] + weight;
                     dist[y][i] = dist[x][i] + 1;
                     state[y][i] = state[x][i];
                     state[y][i].set(y);
-                    father[y][i] = {x, std::get<0>(father[x][i]) == x ? std::get<1>(father[x][i]) : i, info->index};
+                    father[y][i] = {x, std::get<0>(father[x][i]) == x ? std::get<1>(father[x][i]) : i, e};
                     int estimate = dist[y][i] + baseline[y][qry.to];
                     if (estimate == base) {
 						A.push_back(y | (i << 12));
@@ -576,7 +630,7 @@ namespace search {
                     same[y][i] = same[x][i] + weight;
                     state[y][i] = state[x][i];
                     state[y][i].set(y);
-                    father[y][i] = {x, std::get<0>(father[x][i]) == x ? std::get<1>(father[x][i]) : i, info->index};
+                    father[y][i] = {x, std::get<0>(father[x][i]) == x ? std::get<1>(father[x][i]) : i, e};
                 }
             }
         }
@@ -602,19 +656,8 @@ namespace search {
 }
 std::vector<int> solve(int e) {
     int s = edges[e].first, t = edges[e].second;
-    for (int i = 0; i < G[s].size(); ++i) {
-        if (G[s][i].second->index == e) {
-            G[s].erase(G[s].begin() + i);
-            break;
-        }
-    }
-    std::swap(s, t);
-    for (int i = 0; i < G[s].size(); ++i) {
-        if (G[s][i].second->index == e) {
-            G[s].erase(G[s].begin() + i);
-            break;
-        }
-    }
+    G[s].erase(e);
+    G[t].erase(e);
     std::vector<int> deleted = edges[e].occupied;
 #ifdef __SMZ_RUNTIME_CHECK
     for (int i = 0; i < deleted.size(); ++i) {
@@ -766,7 +809,7 @@ std::vector<int> solve(int e) {
 }
 int main() {
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("../release/big.in", "r", stdin);
+    std::ignore = freopen("../release/testcase2.in", "r", stdin);
     std::ignore = freopen("../release/output.txt", "w", stdout);
 #endif
     testcase::run();
@@ -818,9 +861,9 @@ int main() {
 #endif
     }
 #ifdef __SMZ_NATIVE_TEST
-    print("Score: ", (int)score);       //8202638   480389
+    print("Score: ", (int)score);       //8217021   482882
     print("Runtime: ", runtime());
-    print("Iterations: ", iterations);  //35681204  8320370
+    print("Iterations: ", iterations);  //34537463  8586828
 #endif
     return 0;
 }
