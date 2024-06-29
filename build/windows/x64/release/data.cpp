@@ -60,24 +60,25 @@ pair<int,int> findZeroSegments(const bitset<K>& bs) {
 bool get_path(int s,int t) {
     bitset<K> blank_1;
     bitset<MAXN> blank_2;
+    blank_2.set(s);
     op = 0,ed = 1;
     q[0] = make_pair(s,make_pair(blank_1,blank_2));
     memset(from,0,sizeof(from));
     // cout <<"--------------------------------"<<endl;
     // cout << "get_path" <<s <<" "<<t<<endl;
-    // for(int i = 1;i <=n;i++)cout<<vis[i]<<" ";cout<<endl;
+
     while(op < ed) {
-        
+        random_shuffle(q + op,q + ed);
         auto tp = q[op];
         int x = tp.first;
-        // cout << "op" << op <<" " << "ed" <<" " << x <<" "<<tp.second<<endl;
+        // cout << "op" << op <<" " << "ed" <<" " << x <<" "<<tp.second.first<<endl;
         //顺序bug，艹
         for(auto it = to[x].begin();it != to[x].end() && ed < Q_LIM;it++) {
             int y = it->first;
             int pos = it->second;
             auto new_bit = (tp.second.first) | h[pos];
             // cout <<"st:" <<x<<"tar:"<<y<<endl;
-            // cout <<"vis[y]:" <<vis[y]<<"tp.second:"<<tp.second<<"h[pos]:"<<h[pos]<<endl;
+            // cout <<"vised:" <<tp.second.second<<"\ntp.second:"<<tp.second.first<<"h[pos]:"<<h[pos]<<endl;
             if(tp.second.second[y]) continue;
             if(new_bit.all()) continue;
             bitset<MAXN> new_vis = tp.second.second;
@@ -87,6 +88,7 @@ bool get_path(int s,int t) {
             from_edge[ed] = pos;
             ed++;
             if(y == t) {
+                op = ed;
                 return true;
             }
         }
@@ -104,16 +106,18 @@ pair<int,int> get_rand_seg(pair<int,int> seg){
 }
 void get_output(tag &tp) {
     tp.path.clear();
-    pair<int,int> seg = findZeroSegments(q[op].second.first);
+    // cout << "Q[op]:"<<q[op-1].first<<" "<<q[op-1].second.first << endl;
+    pair<int,int> seg = findZeroSegments(q[op-1].second.first);
     seg = get_rand_seg(seg);
     bitset<K>st;
     for(int i = seg.first;i <= seg.second;i++) {
         st.set(i);
     }
     // cout <<"Q:"<<endl;
+    // cout << "st:" << st << endl;
     // for(int i = 0;i < ed;i++) cout << q[i].first <<" ";cout << endl;
     // for(int i = 0;i < ed;i++) cout << from[i] <<" ";cout << endl;
-    int pos = ed-1;
+    int pos = op-1;
     while(pos != 0) {
         int fr = q[from[pos]].first;
         int id = from_edge[pos];
@@ -172,8 +176,10 @@ int main(){
         tp.v = rand() % 100001;
         while(tp.src == tp.snk) tp.snk = rand() % n + 1;
         if(get_path(tp.src,tp.snk)) {
+            // cout <<" pre success" << tp.src <<" "<<tp.snk << " " << mission.size() <<endl;
             get_output(tp);
             mission.push_back(tp);
+            // cout <<" las success" << tp.src <<" "<<tp.snk << " " <<mission.size() <<endl;
         }
     }
     outfile<<n<<" "<<m<<endl;
@@ -183,23 +189,24 @@ int main(){
     }
     outfile<<mission.size()<<endl;
     for(auto x: mission) {
-        outfile << x.src <<" " << x.snk<<" "<<x.path.size()<< " " <<x.l <<" " <<x.r<<" "<<x.v<<endl;
+        outfile << x.src <<" " << x.snk<<" "<<x.path.size()<< " " <<x.l + 1<<" " <<x.r + 1<<" "<<x.v<<endl;
         for(auto j : x.path) {
-            outfile << j <<" ";
+            outfile << j + 1<<" ";
         }outfile << endl;
     }
     // for(int i = 0;i < edge.size();i++) {
     //     cout << i <<" " <<h[i]<<endl;
     // }
-    int lim = min(6000,m);
     outfile << t << endl;
-    while(t--) {
+    
+    while(t) {
         int x = 120;
         int kill[MAXM] = {0};
         for(int j = 1;j <= m;j++) kill[j] = j;
         random_shuffle(kill+1,kill + m + 1);
-        for(int i = 1;i <= x;i++) outfile << kill[i] << endl;
+        for(int i = 1;i <= min(x,m);i++) outfile << kill[i] << endl;
         outfile << -1 << endl;
+        t--;
     }
     return 0;
 }
