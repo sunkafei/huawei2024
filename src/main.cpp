@@ -172,6 +172,7 @@ struct query_t {
     }
 } query[MAXQ];
 std::mt19937 engine;
+int baseline[MAXN][MAXN];
 std::vector<std::pair<int, edge_t*>> G[MAXN];
 const auto start_time = std::chrono::steady_clock::now();
 template<typename... T> void print(const T&... sth) {
@@ -179,12 +180,13 @@ template<typename... T> void print(const T&... sth) {
     (..., (std::cerr << sth << " ")) << std::endl;
 #endif
 }
-template<typename T, int maxsize> class deque {
+template<typename T, int maxsize> class deque_t {
 private:
-    T data[maxsize * 2];
+    T* data;
     int L = maxsize;
     int R = maxsize;
 public:
+    deque_t() : data(new T[maxsize * 2]) {}
     T& front() {
         return data[L];
     }
@@ -222,6 +224,41 @@ public:
     template<typename... F> void emplace_front(F&&... args) {
         L -= 1;
         new(&data[L]) T(std::forward<F>(args)...);
+    }
+};
+template<typename T, int maxsize> class queue_t {
+private:
+    T* data;
+    int L = 0;
+    int R = 0;
+public:
+    queue_t() : data(new T[maxsize]) {}
+    ~queue_t() {
+        delete[] data;
+    }    
+    T& front() {
+        return data[L];
+    }
+    int size() const {
+        return R - L;
+    }
+    bool empty() const {
+        return L == R;
+    }
+    void clear() {
+        L = 0;
+        R = 0;
+    }
+    void push(const T& value) {
+        data[R] = value;
+        R += 1;
+    }
+    template<typename... F> void emplace(F&&... args) {
+        new(&data[R]) T(std::forward<F>(args)...);
+        R += 1;
+    }
+    void pop() {
+        L += 1;
     }
 };
 double runtime() {
@@ -282,6 +319,32 @@ namespace testcase {
     int n, m, q, p[MAXN];
     std::pair<int, int> nodes[MAXM];
     std::vector<std::tuple<int, int, int, int, int, int, std::vector<int>>> business;
+    void preprocess() {
+        queue_t<int, MAXN> Q;
+        std::vector<int> G[MAXN];
+        for (int i = 1; i <= m; ++i) {
+            auto [x, y] = nodes[i];
+            G[x].push_back(y);
+            G[y].push_back(x);
+        }
+		for (int start = 1; start <= n; ++start) {
+			Q.clear();
+			for (int i = 1; i <= n; ++i) {
+				baseline[start][i] = INF;
+			}
+			baseline[start][start] = 0;
+			Q.push(start);
+			while (Q.size()) {
+				auto x = Q.front(); Q.pop();
+				for (auto y : G[x]) {
+					if (baseline[start][y] == INF) {
+						baseline[start][y] = baseline[start][x] + 1;
+						Q.push(y);
+					}
+				}
+			}
+		}
+    }
     void run() {
         io::start_reading();
         n = io::read_int();
@@ -339,6 +402,7 @@ namespace testcase {
             }
             business.emplace_back(s, t, length, L, R, V, std::move(E));
         }
+        preprocess();
     }
     void start() {
         ::n = n;
@@ -380,37 +444,65 @@ namespace testcase {
     }
 }
 namespace search {
+    int first_vis[MAXN];
     int64_t last[MAXQ], visit[MAXN][MAXK], timestamp = 1;
     int dist[MAXN][MAXK], same[MAXN][MAXK];
-    int first_vis[MAXN];
     std::tuple<int, int, int> father[MAXN][MAXK];
-    deque<std::pair<int, int>, MAXN * MAXK> queue;
+    std::bitset<MAXN> state[MAXN][MAXK];
+    deque_t<std::pair<int, int>, MAXN * MAXK * 2> A, B1, B2, C;
     inline path_t search(const query_t& qry, const path_t& prev) noexcept {
-        static std::bitset<MAXN> state[MAXN][MAXK];
         timestamp += 2;
-        queue.clear();
+        A.clear(); B1.clear(); B2.clear(); C.clear();
         for (auto [e, _] : prev) {
             last[e] = timestamp;
         }
         for (int i = 1; i <= n; ++i) {
             first_vis[i] = false;
         }
-        for (int j = k - qry.span; j > 0; --j) {
+        for (int j = 1; j + qry.span <= k; ++j) {
             visit[qry.from][j] = timestamp;
             same[qry.from][j] = 0;
             dist[qry.from][j] = 0;
             state[qry.from][j].reset();
             state[qry.from][j].set(qry.from);
-            queue.emplace_back(qry.from, j);
+            A.emplace_back(qry.from | (j << 12), 0);
         }
         int channel = -1;
-        while (!queue.empty()) {
-            auto [x, i] = queue.front();
-            queue.pop_front();
+        while (A.size() || B1.size() || B2.size() || C.size()) {
+			while (A.empty()) {
+				A.clear();
+                while (B1.size() && B2.size()) {
+                    if (B1.front() > B2.front()) {
+                        A.push_front(B1.front());
+                        B1.pop_front();
+                    }
+                    else {
+                        A.push_front(B2.front());
+                        B2.pop_front();
+                    }
+                }
+				while (B1.size()) {
+					A.push_front(B1.front());
+					B1.pop_front();
+				}
+				while (B2.size()) {
+					A.push_front(B2.front());
+					B2.pop_front();
+				}
+				B1.clear();
+				B2.clear();
+				swap(B2, C);
+			}
+			auto [tmp, distance] = A.back(); A.pop_back();
+			int x = tmp & 0xFFF, i = tmp >> 12;
+			if (distance != dist[x][i]) {
+				continue;
+			}
             if (x == qry.to) [[unlikely]] {
                 channel = i;
                 break;
             }
+            int base = dist[x][i] + baseline[x][qry.to];
             if (visit[x][i] > timestamp) continue;
             if (p[x] > 0 && !first_vis[x]) {
                 first_vis[x] = true;
@@ -422,7 +514,8 @@ namespace search {
                         state[x][j] = state[x][i];
                         father[x][j] = {x, i, -1};
                     }
-                    queue.emplace_front(x, j);
+                    //queue.emplace_front(x, j);
+                    A.push_back({ x | (j << 12), dist[x][j] });
                 }
                 continue;
             }
@@ -435,22 +528,39 @@ namespace search {
                 if (state[x][i].test(y)) [[unlikely]] {
                     continue;
                 }
-                const int weight = last[info->index] == timestamp;
-                if (visit[y][i] < timestamp || dist[y][i] > dist[x][i] + 1) {
+                if (visit[y][i] < timestamp) {
                     visit[y][i] = timestamp;
+                    dist[y][i] = INF;
+                }
+                const int weight = last[info->index] == timestamp;
+                if (dist[y][i] > dist[x][i] + 1) {
                     same[y][i] = same[x][i] + weight;
                     dist[y][i] = dist[x][i] + 1;
                     state[y][i] = state[x][i];
                     state[y][i].set(y);
-                    queue.emplace_back(y, i);
                     father[y][i] = {x, std::get<0>(father[x][i]) == x ? std::get<1>(father[x][i]) : i, info->index};
+                    int estimate = dist[y][i] + baseline[y][qry.to];
+                    if (estimate == base) {
+						A.push_back({ y | (i << 12), dist[y][i] });
+					}
+					else if (estimate == base + 1) {
+						B1.push_back({ y | (i << 12), dist[y][i] });
+					}
+					else {
+                        #ifdef __SMZ_RUNTIME_CHECK
+						if (estimate != base + 2) {
+                            abort();
+                        }
+                        #endif
+						C.push_back({ y | (i << 12), dist[y][i] });
+					}
                 }
-                else if (dist[y][i] == dist[x][i] + 1 && same[y][i] < same[x][i] + weight) {
+                /*else if (dist[y][i] == dist[x][i] + 1 && same[y][i] < same[x][i] + weight) {
                     same[y][i] = same[x][i] + weight;
                     state[y][i] = state[x][i];
                     state[y][i].set(y);
                     father[y][i] = {x, std::get<0>(father[x][i]) == x ? std::get<1>(father[x][i]) : i, info->index};
-                }
+                }*/
             }
         }
         if (channel == -1) {
