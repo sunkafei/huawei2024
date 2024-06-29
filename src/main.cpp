@@ -380,7 +380,7 @@ namespace testcase {
     }
 }
 namespace search {
-    int64_t vis[MAXQ], timestamp = 1;
+    int64_t last[MAXQ], visit[MAXN][MAXK], timestamp = 1;
     int dist[MAXN][MAXK], same[MAXN][MAXK];
     int first_vis[MAXN], pop_vis[MAXN][MAXK];
     std::tuple<int, int, int> father[MAXN][MAXK];
@@ -390,22 +390,21 @@ namespace search {
         timestamp += 1;
         queue.clear();
         for (auto [e, _] : prev) {
-            vis[e] = timestamp;
+            last[e] = timestamp;
         }
         for (int i = 1; i <= n; ++i) {
+            first_vis[i] = false;
             for (int j = 1; j <= k; ++j) {
-                same[i][j] = 0;
-                dist[i][j] = INF;
-                first_vis[i] = false;
                 pop_vis[i][j] = false;
-                state[i][j].reset();
             }
         }
         for (int j = k - qry.span; j > 0; --j) {
-            queue.emplace_back(qry.from, j);
+            visit[qry.from][j] = timestamp;
             same[qry.from][j] = 0;
             dist[qry.from][j] = 0;
+            state[qry.from][j].reset();
             state[qry.from][j].set(qry.from);
+            queue.emplace_back(qry.from, j);
         }
         int channel = 1;
         while (!queue.empty()) {
@@ -419,7 +418,8 @@ namespace search {
             if (p[x] > 0 && !first_vis[x]) {
                 first_vis[x] = true;
                 for (int j = 1; j + qry.span <= k; ++j) {
-                    if(dist[x][j] > dist[x][i]){
+                    if (visit[x][j] != timestamp || dist[x][j] > dist[x][i]) {
+                        visit[x][j] = timestamp;
                         same[x][j] = same[x][i];
                         dist[x][j] = dist[x][i];
                         state[x][j] = state[x][i];
@@ -438,8 +438,9 @@ namespace search {
                 if (state[x][i].test(y)) {
                     continue;
                 }
-                const int weight = vis[info->index] == timestamp;
-                if (dist[y][i] > dist[x][i] + 1) {
+                const int weight = last[info->index] == timestamp;
+                if (visit[y][i] != timestamp || dist[y][i] > dist[x][i] + 1) {
+                    visit[y][i] = timestamp;
                     same[y][i] = same[x][i] + weight;
                     dist[y][i] = dist[x][i] + 1;
                     state[y][i] = state[x][i];
@@ -455,7 +456,7 @@ namespace search {
                 }
             }
         }
-        if (dist[qry.to][channel] == INF) {
+        if (visit[qry.to][channel] != timestamp) {
             return {};
         }
         path_t path;
@@ -641,7 +642,7 @@ std::vector<int> solve(int e) {
 }
 int main() {
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("../release/large1.in", "r", stdin);
+    std::ignore = freopen("../release/testcase2.in", "r", stdin);
     std::ignore = freopen("../release/output.txt", "w", stdout);
 #endif
     testcase::run();
