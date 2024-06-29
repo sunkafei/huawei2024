@@ -23,7 +23,7 @@ vector<pair<int,int> >edge;
 vector<pair<int,int> >to[MAXN];
 bitset<K> h[MAXM];
 vector<tag>mission;
-int n = 200,m = 1000,t = 50;
+int n = 200,m = 1000;
 int p[207] = {0};
 
 
@@ -68,7 +68,6 @@ bool get_path(int s,int t) {
     // cout << "get_path" <<s <<" "<<t<<endl;
 
     while(op < ed) {
-        random_shuffle(q + op,q + ed);
         auto tp = q[op];
         int x = tp.first;
         // cout << "op" << op <<" " << "ed" <<" " << x <<" "<<tp.second.first<<endl;
@@ -197,10 +196,21 @@ int main(){
     // for(int i = 0;i < edge.size();i++) {
     //     cout << i <<" " <<h[i]<<endl;
     // }
-    outfile << t << endl;
+    int t = 50;
+    outfile << 100 << endl;
     
     while(t) {
-        int x = 120;
+        int x = 119;
+        int kill[MAXM] = {0};
+        for(int j = 1;j <= m;j++) kill[j] = j;
+        random_shuffle(kill+1,kill + m + 1);
+        for(int i = 1;i <= min(x,m);i++) outfile << kill[i] << endl;
+        outfile << -1 << endl;
+        t--;
+    }
+    t = 50;
+    while(t) {
+        int x = 1;
         int kill[MAXM] = {0};
         for(int j = 1;j <= m;j++) kill[j] = j;
         random_shuffle(kill+1,kill + m + 1);
