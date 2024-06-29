@@ -469,7 +469,7 @@ namespace search {
     std::tuple<int, int, int> father[MAXN][MAXK];
     std::bitset<MAXN> state[MAXN][MAXK];
     deque_t<std::pair<int, int>, MAXN * MAXK * 2> A, B1, B2, C;
-    inline path_t search(const query_t& qry, const path_t& prev) noexcept {
+    inline path_t astar(const query_t& qry, const path_t& prev) noexcept {
         timestamp += 2;
         A.clear(); B1.clear(); B2.clear(); C.clear();
         for (auto [e, _] : prev) {
@@ -646,7 +646,7 @@ std::vector<int> solve(int e) {
             auto prev = query[i].path;
             query[i].undo();
             ::iterations += 1;
-            auto new_path = search::search(query[i], prev);
+            auto new_path = search::astar(query[i], prev);
 #ifdef __SMZ_RUNTIME_CHECK
             int node = query[i].from;
             std::vector<int> nodes(1, node);
