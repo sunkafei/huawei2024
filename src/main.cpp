@@ -803,7 +803,7 @@ int main() {
 #ifdef __SMZ_NATIVE_TEST
     print("Score: ", (int)score);       //8203446
     print("Runtime: ", runtime());
-    print("Iterations: ", iterations);  //3725723
+    print("Iterations: ", iterations);  //34340826
 #endif
     return 0;
 }
