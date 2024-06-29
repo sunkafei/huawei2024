@@ -514,7 +514,6 @@ namespace search {
                         state[x][j] = state[x][i];
                         father[x][j] = {x, i, -1};
                     }
-                    //queue.emplace_front(x, j);
                     A.push_back({ x | (j << 12), dist[x][j] });
                 }
                 continue;
@@ -555,12 +554,12 @@ namespace search {
 						C.push_back({ y | (i << 12), dist[y][i] });
 					}
                 }
-                /*else if (dist[y][i] == dist[x][i] + 1 && same[y][i] < same[x][i] + weight) {
+                else if (dist[y][i] == dist[x][i] + 1 && same[y][i] < same[x][i] + weight) {
                     same[y][i] = same[x][i] + weight;
                     state[y][i] = state[x][i];
                     state[y][i].set(y);
                     father[y][i] = {x, std::get<0>(father[x][i]) == x ? std::get<1>(father[x][i]) : i, info->index};
-                }*/
+                }
             }
         }
         if (channel == -1) {
@@ -801,9 +800,9 @@ int main() {
 #endif
     }
 #ifdef __SMZ_NATIVE_TEST
-    print("Score: ", (int)score);       //8203446
+    print("Score: ", (int)score);       //8204085
     print("Runtime: ", runtime());
-    print("Iterations: ", iterations);  //34340826
+    print("Iterations: ", iterations);  //34641659
 #endif
     return 0;
 }
