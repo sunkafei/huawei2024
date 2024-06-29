@@ -767,7 +767,7 @@ std::vector<int> solve(int e) {
 }
 int main() {
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("../release/testcase2.in", "r", stdin);
+    std::ignore = freopen("../release/big.in", "r", stdin);
     std::ignore = freopen("../release/output.txt", "w", stdout);
 #endif
     testcase::run();
@@ -819,9 +819,9 @@ int main() {
 #endif
     }
 #ifdef __SMZ_NATIVE_TEST
-    print("Score: ", (int)score);       //8204085
+    print("Score: ", (int)score);       //8204085   488636
     print("Runtime: ", runtime());
-    print("Iterations: ", iterations);  //34641659
+    print("Iterations: ", iterations);  //34641659  7386254
 #endif
     return 0;
 }
