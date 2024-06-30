@@ -20,6 +20,160 @@ int64_t iterations = 0;
 int num_operations = 6000;
 int n, m, q, p[MAXN];
 using path_t = std::vector<std::pair<int, int>>;
+struct edge_t {
+    uint64_t channel;
+    std::vector<int> occupied;
+    int first;
+    int second;
+    int index;
+    bool deleted;
+    void set(int l, int r) {
+        uint64_t mask = (1ull << (r + 1)) - (1ull << l);
+#ifdef __SMZ_RUNTIME_CHECK
+        if (l <= 0 || r > k || l > r) {
+            abort();
+        }
+#endif
+        channel |= mask;
+    }
+    void clear(int l, int r) {
+        uint64_t mask = (1ull << (r + 1)) - (1ull << l);
+#ifdef __SMZ_RUNTIME_CHECK
+        if (l <= 0 || r > k || l > r) {
+            abort();
+        }
+#endif
+        channel &= ~mask;
+    }
+    bool empty(uint64_t mask) {
+        return (channel & mask) == 0;
+    }
+    void remove(int x) {
+#ifdef __SMZ_RUNTIME_CHECK
+        if (occupied.empty() || x <= 0 || x > q) {
+            abort();
+        }
+#endif
+        for (int i = 0; i < occupied.size(); ++i) {
+            if (occupied[i] == x) {
+                std::swap(occupied[i], occupied.back());
+                occupied.pop_back();
+                return;
+            }
+        }
+#ifdef __SMZ_RUNTIME_CHECK
+        abort();
+#endif
+    }
+    void insert(int x) {
+#ifdef __SMZ_RUNTIME_CHECK
+        int cnt = 0;
+        for (int i = 0; i < occupied.size(); ++i) {
+            if (occupied[i] == x) {
+                cnt += 1;
+            }
+        }
+        if (cnt > 1 || x <= 0 || x > q) {
+            abort();
+        }
+#endif
+        occupied.push_back(x);
+    }
+} edges[MAXM];
+struct query_t {
+    int from;
+    int to;
+    int l;
+    int r;
+    int value;
+    int index;
+    int span;
+    bool dead;
+    path_t path, backup;
+    static inline int64_t vis[MAXQ];
+    static inline int64_t timestamp = 1;
+    template<bool first=true> void apply(const path_t& new_path) const {
+        int node = from;
+        int channel = -1;
+        for (auto [e, L] : new_path) {
+            edges[e].set(L, L + span);
+            edges[e].insert(index);
+            if (channel != -1 && channel != L) {
+                if constexpr (first) {
+                    p[node] -= 1;
+                    vis[node] = timestamp;
+                }
+                else {
+                    if (vis[node] != timestamp) {
+                        p[node] -= 1;
+                    }
+                }
+            }
+#ifdef __SMZ_RUNTIME_CHECK
+            if (node != edges[e].first && node != edges[e].second) {
+                abort();
+            }
+            if (edges[e].deleted) { //p[node] < -1 || 
+                abort();
+            }
+#endif
+            node = (node != edges[e].first ? edges[e].first : edges[e].second);
+            channel = L;
+        }
+    }
+    template<bool first=true> void undo(const path_t& the_path) const {
+        int node = from;
+        int channel = -1;
+        for (auto [e, L] : the_path) {
+            edges[e].clear(L, L + span);
+            edges[e].remove(index);
+            if (channel != -1 && channel != L) {
+                if constexpr (first) {
+                    p[node] += 1;
+                    vis[node] = timestamp;
+                }
+                else {
+                    if (vis[node] != timestamp) {
+                        p[node] += 1;
+                    }
+                }
+            }
+#ifdef __SMZ_RUNTIME_CHECK
+            if (node != edges[e].first && node != edges[e].second) {
+                abort();
+            }
+#endif
+            node = (node != edges[e].first ? edges[e].first : edges[e].second);
+            channel = L;
+        }
+    }
+    void undo() {
+        backup = std::move(path);
+        path.clear();
+        undo(backup);
+    }
+    void redo() {
+        path = backup;
+        backup.clear();
+        apply(path);
+    }
+    void plan(const path_t& new_path) {
+        path = new_path;
+        timestamp += 1;
+        apply<true>(path);
+        apply<false>(backup);
+    }
+    void cancel() {
+        timestamp += 1;
+        undo<true>(backup);
+        undo<false>(path);
+        apply(backup);
+        path = backup;
+    }
+} query[MAXQ];
+std::mt19937 engine;
+int baseline[MAXN][MAXN];
+std::vector<std::pair<int, edge_t*>> G[MAXN];
 const auto start_time = std::chrono::steady_clock::now();
 template<typename... T> void print(const T&... sth) {
 #ifdef __SMZ_NATIVE_TEST
@@ -107,239 +261,11 @@ public:
         L += 1;
     }
 };
-template<typename T, int maxsize> class vector_t {
-private:
-    T* data;
-    int* index;
-    int sz;
-public:
-    vector_t() : index(new int[maxsize]), data(new T[maxsize]) {}
-    int size() const {
-        return sz;
-    }
-    bool empty() const {
-        return sz == 0;
-    }
-    void clear() {
-        sz = 0;
-    }
-    void ascend(typename T::second_type value) {
-        #ifdef __SMZ_RUNTIME_CHECK
-        if (value < 0 || value >= maxsize) {
-            abort();
-        }
-        if (index[value] < 0 || index[value] >= sz) {
-            abort();
-        }
-        if (data[index[value]].second != value) {
-            abort();
-        }
-        #endif
-        const int i = index[value];
-        std::swap(data[0], data[i]);
-        index[data[0].second] = 0;
-        index[data[i].second] = i;
-    }
-    void erase(typename T::second_type value) {
-        #ifdef __SMZ_RUNTIME_CHECK
-        if (value < 0 || value >= maxsize) {
-            abort();
-        }
-        if (index[value] < 0 || index[value] >= sz) {
-            abort();
-        }
-        if (data[index[value]].second != value) {
-            abort();
-        }
-        data[sz] = {-1, -1};
-        #endif
-        const int i = index[value];
-        sz -= 1;
-        std::swap(data[i], data[sz]);
-        index[data[i].second] = i;
-    }
-    void push_back(const T& value) {
-        #ifdef __SMZ_RUNTIME_CHECK
-        if (value.second < 0 || value.second >= maxsize) {
-            abort();
-        }
-        #endif
-        index[value.second] = sz;
-        data[sz] = value;
-        sz += 1;
-    }
-    template<typename... F> void emplace_back(F&&... args) {
-        push_back(T{args...});
-    }
-    T* begin() {
-        return data;
-    }
-    T* end() {
-        return data + sz;
-    }
-    T& operator[] (int i) {
-        return data[i];
-    }
-};
 double runtime() {
     auto now = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(now - start_time);
     return duration.count() / 1e6;
 }
-struct edge_t {
-    uint64_t channel;
-    std::vector<int> occupied;
-    int first;
-    int second;
-    int index;
-    int deleted;
-    void set(int l, int r) {
-        uint64_t mask = (1ull << (r + 1)) - (1ull << l);
-#ifdef __SMZ_RUNTIME_CHECK
-        if (l <= 0 || r > k || l > r) {
-            abort();
-        }
-#endif
-        channel |= mask;
-    }
-    void clear(int l, int r) {
-        uint64_t mask = (1ull << (r + 1)) - (1ull << l);
-#ifdef __SMZ_RUNTIME_CHECK
-        if (l <= 0 || r > k || l > r) {
-            abort();
-        }
-#endif
-        channel &= ~mask;
-    }
-    bool empty(uint64_t mask) {
-        return (channel & mask) == 0;
-    }
-    void remove(int x) {
-#ifdef __SMZ_RUNTIME_CHECK
-        if (occupied.empty() || x <= 0 || x > q) {
-            abort();
-        }
-#endif
-        for (int i = 0; i < occupied.size(); ++i) {
-            if (occupied[i] == x) {
-                std::swap(occupied[i], occupied.back());
-                occupied.pop_back();
-                return;
-            }
-        }
-#ifdef __SMZ_RUNTIME_CHECK
-        abort();
-#endif
-    }
-    void insert(int x) {
-#ifdef __SMZ_RUNTIME_CHECK
-        int cnt = 0;
-        for (int i = 0; i < occupied.size(); ++i) {
-            if (occupied[i] == x) {
-                cnt += 1;
-            }
-        }
-        if (cnt > 1 || x <= 0 || x > q) {
-            abort();
-        }
-#endif
-        occupied.push_back(x);
-    }
-} edges[MAXM];
-struct query_t {
-    int from;
-    int to;
-    int l;
-    int r;
-    int value;
-    int index;
-    int span;
-    bool dead;
-    path_t path, backup;
-    static inline int64_t vis[MAXQ];
-    static inline int64_t timestamp = 1;
-    template<bool first=true> void apply(const path_t& new_path) const {
-        int node = from;
-        int channel = -1;
-        for (auto [e, L] : new_path) {
-            edges[e].set(L, L + span);
-            edges[e].insert(index);
-            if (channel != -1 && channel != L) {
-                if constexpr (first) {
-                    p[node] -= 1;
-                    vis[node] = timestamp;
-                }
-                else {
-                    if (vis[node] != timestamp) {
-                        p[node] -= 1;
-                    }
-                }
-            }
-#ifdef __SMZ_RUNTIME_CHECK
-            if (node != edges[e].first && node != edges[e].second) {
-                abort();
-            }
-            if (edges[e].deleted == 1) { //p[node] < -1 || 
-                abort();
-            }
-#endif
-            node = (node != edges[e].first ? edges[e].first : edges[e].second);
-            channel = L;
-        }
-    }
-    template<bool first=true> void undo(const path_t& the_path) const {
-        int node = from;
-        int channel = -1;
-        for (auto [e, L] : the_path) {
-            edges[e].clear(L, L + span);
-            edges[e].remove(index);
-            if (channel != -1 && channel != L) {
-                if constexpr (first) {
-                    p[node] += 1;
-                    vis[node] = timestamp;
-                }
-                else {
-                    if (vis[node] != timestamp) {
-                        p[node] += 1;
-                    }
-                }
-            }
-#ifdef __SMZ_RUNTIME_CHECK
-            if (node != edges[e].first && node != edges[e].second) {
-                abort();
-            }
-#endif
-            node = (node != edges[e].first ? edges[e].first : edges[e].second);
-            channel = L;
-        }
-    }
-    void undo() {
-        backup = std::move(path);
-        path.clear();
-        undo(backup);
-    }
-    void redo() {
-        path = backup;
-        backup.clear();
-        apply(path);
-    }
-    void plan(const path_t& new_path) {
-        path = new_path;
-        timestamp += 1;
-        apply<true>(path);
-        apply<false>(backup);
-    }
-    void cancel() {
-        timestamp += 1;
-        undo<true>(backup);
-        undo<false>(path);
-        apply(backup);
-        path = backup;
-    }
-} query[MAXQ];
-std::mt19937 engine;
-int baseline[MAXN][MAXN];
-vector_t<std::pair<int, int>, MAXM> G[MAXN];
 namespace io {
     constexpr int MAXBUFFER = 1024 * 1024 * 8;
     char ibuffer[MAXBUFFER], * iptr, obuffer[MAXBUFFER], * optr;
@@ -512,9 +438,9 @@ namespace testcase {
             ::edges[i].first = x;
             ::edges[i].second = y;
             ::edges[i].index = i;
-            ::edges[i].deleted = 0;
-            ::G[x].emplace_back(y, i);
-            ::G[y].emplace_back(x, i);
+            ::edges[i].deleted = false;
+            ::G[x].emplace_back(y, &::edges[i]);
+            ::G[y].emplace_back(x, &::edges[i]);
         }
         ::q = q;
         for (int i = 1; i <= business.size(); ++i) {
@@ -546,10 +472,8 @@ namespace search {
     inline path_t astar(const query_t& qry, const path_t& prev) noexcept {
         timestamp += 2;
         A.clear(); B1.clear(); B2.clear(); C.clear();
-        for (auto [e, _] : prev) if (edges[e].deleted == 0) {
+        for (auto [e, _] : prev) {
             last[e] = timestamp;
-            G[edges[e].first].ascend(e);
-            G[edges[e].second].ascend(e);
         }
         for (int i = 1; i <= n; ++i) {
             first_vis[i] = false;
@@ -614,8 +538,8 @@ namespace search {
             }
             visit[x][i] = timestamp + 1;
             const uint64_t mask = (1ull << (i + qry.span + 1)) - (1ull << i);
-            for (auto [y, e] : G[x]) {
-                if (!edges[e].empty(mask)) {
+            for (auto [y, info] : G[x]) {
+                if (!info->empty(mask)) {
                     continue;
                 }
                 if (state[x][i].test(y)) [[unlikely]] {
@@ -625,13 +549,13 @@ namespace search {
                     visit[y][i] = timestamp;
                     dist[y][i] = INF;
                 }
-                const int weight = last[e] == timestamp;
+                const int weight = last[info->index] == timestamp;
                 if (dist[y][i] > dist[x][i] + 1) {
                     same[y][i] = same[x][i] + weight;
                     dist[y][i] = dist[x][i] + 1;
                     state[y][i] = state[x][i];
                     state[y][i].set(y);
-                    father[y][i] = {x, std::get<0>(father[x][i]) == x ? std::get<1>(father[x][i]) : i, e};
+                    father[y][i] = {x, std::get<0>(father[x][i]) == x ? std::get<1>(father[x][i]) : i, info->index};
                     int estimate = dist[y][i] + baseline[y][qry.to];
                     if (estimate == base) {
 						A.push_back(y | (i << 12));
@@ -652,7 +576,7 @@ namespace search {
                     same[y][i] = same[x][i] + weight;
                     state[y][i] = state[x][i];
                     state[y][i].set(y);
-                    father[y][i] = {x, std::get<0>(father[x][i]) == x ? std::get<1>(father[x][i]) : i, e};
+                    father[y][i] = {x, std::get<0>(father[x][i]) == x ? std::get<1>(father[x][i]) : i, info->index};
                 }
             }
         }
@@ -678,8 +602,19 @@ namespace search {
 }
 std::vector<int> solve(int e) {
     int s = edges[e].first, t = edges[e].second;
-    G[s].erase(e);
-    G[t].erase(e);
+    for (int i = 0; i < G[s].size(); ++i) {
+        if (G[s][i].second->index == e) {
+            G[s].erase(G[s].begin() + i);
+            break;
+        }
+    }
+    std::swap(s, t);
+    for (int i = 0; i < G[s].size(); ++i) {
+        if (G[s][i].second->index == e) {
+            G[s].erase(G[s].begin() + i);
+            break;
+        }
+    }
     std::vector<int> deleted = edges[e].occupied;
 #ifdef __SMZ_RUNTIME_CHECK
     for (int i = 0; i < deleted.size(); ++i) {
@@ -831,7 +766,7 @@ std::vector<int> solve(int e) {
 }
 int main() {
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("../release/testcase2.in", "r", stdin);
+    std::ignore = freopen("../release/big.in", "r", stdin);
     std::ignore = freopen("../release/output.txt", "w", stdout);
 #endif
     testcase::run();
@@ -855,7 +790,6 @@ int main() {
             if (e == -1) {
                 break;
             }
-            edges[e].deleted = -1;
             auto indices = solve(e);
             io::start_writing();
             io::write_int((int)indices.size());
@@ -872,7 +806,7 @@ int main() {
                 io::newline();
             }
             io::flush();
-            edges[e].deleted = 1;
+            edges[e].deleted = true;
             num_operations -= 1;
         }
         T -= 1;
@@ -884,9 +818,9 @@ int main() {
 #endif
     }
 #ifdef __SMZ_NATIVE_TEST
-    print("Score: ", (int)score);       //8204127   480238
+    print("Score: ", (int)score);       //8202638   480389
     print("Runtime: ", runtime());
-    print("Iterations: ", iterations);  //8204127  7702422
+    print("Iterations: ", iterations);  //35681204  8320370
 #endif
     return 0;
 }
