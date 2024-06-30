@@ -123,6 +123,23 @@ public:
     void clear() {
         sz = 0;
     }
+    void ascend(typename T::second_type value) {
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (value < 0 || value >= maxsize) {
+            abort();
+        }
+        if (index[value] < 0 || index[value] >= sz) {
+            abort();
+        }
+        if (data[index[value]].second != value) {
+            abort();
+        }
+        #endif
+        const int i = index[value];
+        std::swap(data[0], data[i]);
+        index[data[0].second] = 0;
+        index[data[i].second] = i;
+    }
     void erase(typename T::second_type value) {
         #ifdef __SMZ_RUNTIME_CHECK
         if (value < 0 || value >= maxsize) {
@@ -175,7 +192,7 @@ struct edge_t {
     int first;
     int second;
     int index;
-    bool deleted;
+    int deleted;
     void set(int l, int r) {
         uint64_t mask = (1ull << (r + 1)) - (1ull << l);
 #ifdef __SMZ_RUNTIME_CHECK
@@ -262,7 +279,7 @@ struct query_t {
             if (node != edges[e].first && node != edges[e].second) {
                 abort();
             }
-            if (edges[e].deleted) { //p[node] < -1 || 
+            if (edges[e].deleted == 1) { //p[node] < -1 || 
                 abort();
             }
 #endif
@@ -495,7 +512,7 @@ namespace testcase {
             ::edges[i].first = x;
             ::edges[i].second = y;
             ::edges[i].index = i;
-            ::edges[i].deleted = false;
+            ::edges[i].deleted = 0;
             ::G[x].emplace_back(y, i);
             ::G[y].emplace_back(x, i);
         }
@@ -529,8 +546,10 @@ namespace search {
     inline path_t astar(const query_t& qry, const path_t& prev) noexcept {
         timestamp += 2;
         A.clear(); B1.clear(); B2.clear(); C.clear();
-        for (auto [e, _] : prev) {
+        for (auto [e, _] : prev) if (edges[e].deleted == 0) {
             last[e] = timestamp;
+            G[edges[e].first].ascend(e);
+            G[edges[e].second].ascend(e);
         }
         for (int i = 1; i <= n; ++i) {
             first_vis[i] = false;
@@ -812,7 +831,7 @@ std::vector<int> solve(int e) {
 }
 int main() {
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("../release/big.in", "r", stdin);
+    std::ignore = freopen("../release/testcase2.in", "r", stdin);
     std::ignore = freopen("../release/output.txt", "w", stdout);
 #endif
     testcase::run();
@@ -836,6 +855,7 @@ int main() {
             if (e == -1) {
                 break;
             }
+            edges[e].deleted = -1;
             auto indices = solve(e);
             io::start_writing();
             io::write_int((int)indices.size());
@@ -852,7 +872,7 @@ int main() {
                 io::newline();
             }
             io::flush();
-            edges[e].deleted = true;
+            edges[e].deleted = 1;
             num_operations -= 1;
         }
         T -= 1;
@@ -864,9 +884,9 @@ int main() {
 #endif
     }
 #ifdef __SMZ_NATIVE_TEST
-    print("Score: ", (int)score);       //8217021   482882
+    print("Score: ", (int)score);       //8204127   480238
     print("Runtime: ", runtime());
-    print("Iterations: ", iterations);  //34537463  8586828
+    print("Iterations: ", iterations);  //8204127  7702422
 #endif
     return 0;
 }
