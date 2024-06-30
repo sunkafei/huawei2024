@@ -172,7 +172,6 @@ struct query_t {
     }
 } query[MAXQ];
 std::mt19937 engine;
-int baseline[MAXN][MAXN];
 std::vector<std::pair<int, edge_t*>> G[MAXN];
 const auto start_time = std::chrono::steady_clock::now();
 template<typename... T> void print(const T&... sth) {
@@ -319,32 +318,6 @@ namespace testcase {
     int n, m, q, p[MAXN];
     std::pair<int, int> nodes[MAXM];
     std::vector<std::tuple<int, int, int, int, int, int, std::vector<int>>> business;
-    void preprocess() {
-        queue_t<int, MAXN> Q;
-        std::vector<int> G[MAXN];
-        for (int i = 1; i <= m; ++i) {
-            auto [x, y] = nodes[i];
-            G[x].push_back(y);
-            G[y].push_back(x);
-        }
-		for (int start = 1; start <= n; ++start) {
-			Q.clear();
-			for (int i = 1; i <= n; ++i) {
-				baseline[start][i] = INF;
-			}
-			baseline[start][start] = 0;
-			Q.push(start);
-			while (Q.size()) {
-				auto x = Q.front(); Q.pop();
-				for (auto y : G[x]) {
-					if (baseline[start][y] == INF) {
-						baseline[start][y] = baseline[start][x] + 1;
-						Q.push(y);
-					}
-				}
-			}
-		}
-    }
     void run() {
         io::start_reading();
         n = io::read_int();
@@ -402,7 +375,6 @@ namespace testcase {
             }
             business.emplace_back(s, t, length, L, R, V, std::move(E));
         }
-        preprocess();
     }
     void start() {
         #ifdef __SMZ_RUNTIME_CHECK
@@ -469,6 +441,31 @@ namespace search {
     std::tuple<int, int, int> father[MAXN][MAXK];
     std::bitset<MAXN> state[MAXN][MAXK];
     deque_t<int, MAXN * MAXK * 2> A, B1, B2, C;
+    queue_t<int, MAXN> Q;
+    int baseline[MAXN][MAXN];
+    inline void preprocess(std::vector<int> deleted) {
+        std::sort(deleted.begin(), deleted.end());
+        auto iter = std::unique(deleted.begin(), deleted.end());
+        deleted.erase(iter, deleted.end());
+        for (auto i : deleted) {
+            const int start = query[i].to;
+			Q.clear();
+			for (int i = 1; i <= n; ++i) {
+				baseline[start][i] = INF;
+			}
+			baseline[start][start] = 0;
+			Q.push(start);
+			while (Q.size()) {
+				auto x = Q.front(); Q.pop();
+				for (auto [y, _] : G[x]) {
+					if (baseline[start][y] == INF) {
+						baseline[start][y] = baseline[start][x] + 1;
+						Q.push(y);
+					}
+				}
+			}
+        }
+    }
     inline path_t astar(const query_t& qry, const path_t& prev) noexcept {
         timestamp += 2;
         A.clear(); B1.clear(); B2.clear(); C.clear();
@@ -521,7 +518,7 @@ namespace search {
                 channel = i;
                 break;
             }
-            int base = dist[x][i] + baseline[x][qry.to];
+            int base = dist[x][i] + baseline[qry.to][x];
             if (p[x] > 0 && !first_vis[x]) {
                 first_vis[x] = true;
                 for (int j = 1; j + qry.span <= k; ++j) {
@@ -556,7 +553,7 @@ namespace search {
                     state[y][i] = state[x][i];
                     state[y][i].set(y);
                     father[y][i] = {x, std::get<0>(father[x][i]) == x ? std::get<1>(father[x][i]) : i, info->index};
-                    int estimate = dist[y][i] + baseline[y][qry.to];
+                    int estimate = dist[y][i] + baseline[qry.to][y];
                     if (estimate == base) {
 						A.push_back(y | (i << 12));
 					}
@@ -634,6 +631,7 @@ std::vector<int> solve(int e) {
             return query[x].value > query[y].value;
         return query[x].index > query[y].index;
     });
+    search::preprocess(deleted);
     std::tuple<int64_t, int64_t> best{-1, 0};
     std::vector<std::pair<int, path_t>> answer;
     std::vector<int> order;
@@ -766,7 +764,7 @@ std::vector<int> solve(int e) {
 }
 int main() {
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("../release/big.in", "r", stdin);
+    std::ignore = freopen("../release/testcase2.in", "r", stdin);
     std::ignore = freopen("../release/output.txt", "w", stdout);
 #endif
     testcase::run();
@@ -818,9 +816,9 @@ int main() {
 #endif
     }
 #ifdef __SMZ_NATIVE_TEST
-    print("Score: ", (int)score);       //8202638   480389
+    print("Score: ", (int)score);       //8203404   480152
     print("Runtime: ", runtime());
-    print("Iterations: ", iterations);  //35681204  8320370
+    print("Iterations: ", iterations);  //38483518  10783835
 #endif
     return 0;
 }
