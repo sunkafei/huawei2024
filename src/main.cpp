@@ -467,6 +467,9 @@ namespace search {
         }
     }
     inline path_t astar(const query_t& qry, const path_t& prev) noexcept {
+        if (baseline[qry.to][qry.from] == INF) {
+            return {};
+        }
         timestamp += 2;
         A.clear(); B1.clear(); B2.clear(); C.clear();
         for (auto [e, _] : prev) {
@@ -487,6 +490,7 @@ namespace search {
         while (A.size() || B1.size() || B2.size() || C.size()) {
 			while (A.empty()) {
 				A.clear();
+                //todo：更新合并方式
                 while (B1.size() && B2.size()) {
                     if (B1.front() > B2.front()) {
                         A.push_front(B1.front());
