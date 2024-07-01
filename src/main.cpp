@@ -92,12 +92,14 @@ struct query_t {
     path_t path, backup;
     static inline int64_t vis[MAXQ];
     static inline int64_t timestamp = 1;
-    template<bool first=true> void apply(const path_t& new_path) const {
+    template<bool first=true, bool update=false> void apply(const path_t& new_path) const {
         int node = from;
         int channel = -1;
         for (auto [e, L] : new_path) {
             edges[e].set(L, L + span);
-            edges[e].insert(index);
+            if constexpr (update) {
+                edges[e].insert(index);
+            }
             if (channel != -1 && channel != L) {
                 if constexpr (first) {
                     p[node] -= 1;
@@ -121,12 +123,14 @@ struct query_t {
             channel = L;
         }
     }
-    template<bool first=true> void undo(const path_t& the_path) const {
+    template<bool first=true, bool update=false> void undo(const path_t& the_path) const {
         int node = from;
         int channel = -1;
         for (auto [e, L] : the_path) {
             edges[e].clear(L, L + span);
-            edges[e].remove(index);
+            if constexpr (update) {
+                edges[e].remove(index);
+            }
             if (channel != -1 && channel != L) {
                 if constexpr (first) {
                     p[node] += 1;
@@ -157,8 +161,8 @@ struct query_t {
         backup.clear();
         apply(path);
     }
-    void confirm(const path_t& new_path) {
-        path = new_path;
+    void confirm(path_t&& new_path) {
+        path = std::move(new_path);
         timestamp += 1;
         apply<true>(path);
         apply<false>(backup);
@@ -171,6 +175,14 @@ struct query_t {
         auto ret = std::move(path);
         path = std::move(backup);
         return ret;
+    }
+    void replace(path_t&& new_path) {
+        undo<true, true>(path);
+        apply<true, true>(new_path);
+        path = std::move(new_path);
+    }
+    void init(const path_t& the_path) {
+        apply<true, true>(the_path);
     }
 } query[MAXQ];
 std::mt19937 engine;
@@ -391,7 +403,7 @@ namespace testcase {
                 }
             }
             for (int i = 1; i <= m; ++i) {
-                if (edges[i].occupied.size() || edges[i].channel) {
+                if (edges[i].channel) {
                     abort();
                 }
             }
@@ -432,7 +444,7 @@ namespace testcase {
             for (auto e : E) {
                 ::query[i].path.emplace_back(e, L);
             }
-            ::query[i].apply(::query[i].path);
+            ::query[i].init(::query[i].path);
         }
     }
 }
@@ -687,7 +699,7 @@ std::vector<int> solve(int e) {
             }
             else {
                 length += new_path.size() * (query[i].span + 1);
-                query[i].confirm(new_path);
+                query[i].confirm(std::move(new_path));
                 updated.push_back(i);
             }
             if (std::make_tuple(loss, length) >= best) {
@@ -737,12 +749,11 @@ std::vector<int> solve(int e) {
     static uint64_t flag[MAXQ], timestamp = 1;
     timestamp += 1;
     std::vector<int> ret;
-    for (const auto& [i, new_path] : answer) {
+    for (auto iter = answer.begin(); iter != answer.end(); ++iter) {
+        auto [i, new_path] = std::move(*iter);
         flag[i] = timestamp;
         ret.push_back(i);
-        query[i].undo();
-        query[i].path = new_path;
-        query[i].apply(new_path);
+        query[i].replace(std::move(new_path));
     }
     for (auto i : deleted) {
         if (flag[i] != timestamp) {
@@ -777,7 +788,7 @@ std::vector<int> solve(int e) {
 }
 int main() {
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("../release/testcase2.in", "r", stdin);
+    std::ignore = freopen("../release/big.in", "r", stdin);
     std::ignore = freopen("../release/output.txt", "w", stdout);
 #endif
     testcase::run();
@@ -829,9 +840,9 @@ int main() {
 #endif
     }
 #ifdef __SMZ_NATIVE_TEST
-    print("Score: ", (int)score);       //8203404   480152
+    print("Score: ", (int)score);       //8204340   480152
     print("Runtime: ", runtime());
-    print("Iterations: ", iterations);  //38483518  10783835
+    print("Iterations: ", iterations);  //51510378  10818279
 #endif
     return 0;
 }
