@@ -598,7 +598,10 @@ namespace search {
         if (channel == -1) {
             return {};
         }
+        const int length = dist[qry.to][channel];
         path_t path;
+        path.reserve(length);
+        int tmp = channel;
         int node = qry.to;
         while (node != qry.from) {
             auto [prev_node, prev_channel, e] = father[node][channel];
@@ -611,6 +614,11 @@ namespace search {
             }
             #endif
         }
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (path.size() != length) {
+            abort();
+        }
+        #endif
         std::reverse(path.begin(), path.end());
         return path;
     }
@@ -788,7 +796,7 @@ std::vector<int> solve(int e) {
 }
 int main() {
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("../release/big.in", "r", stdin);
+    std::ignore = freopen("../release/testcase2.in", "r", stdin);
     std::ignore = freopen("../release/output.txt", "w", stdout);
 #endif
     testcase::run();
@@ -842,7 +850,7 @@ int main() {
 #ifdef __SMZ_NATIVE_TEST
     print("Score: ", (int)score);       //8204340   480152
     print("Runtime: ", runtime());
-    print("Iterations: ", iterations);  //51510378  10818279
+    print("Iterations: ", iterations);  //53681198  11316254
 #endif
     return 0;
 }
