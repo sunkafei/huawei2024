@@ -153,22 +153,24 @@ struct query_t {
         undo(backup);
     }
     void redo() {
-        path = backup;
+        path = std::move(backup);
         backup.clear();
         apply(path);
     }
-    void plan(const path_t& new_path) {
+    void confirm(const path_t& new_path) {
         path = new_path;
         timestamp += 1;
         apply<true>(path);
         apply<false>(backup);
     }
-    void cancel() {
+    auto cancel() {
         timestamp += 1;
         undo<true>(backup);
         undo<false>(path);
         apply(backup);
-        path = backup;
+        auto ret = std::move(path);
+        path = std::move(backup);
+        return ret;
     }
 } query[MAXQ];
 std::mt19937 engine;
@@ -636,16 +638,16 @@ std::vector<int> solve(int e) {
         return query[x].index > query[y].index;
     });
     search::preprocess(deleted);
-    std::tuple<int64_t, int64_t> best{-1, 0};
+    std::tuple<int64_t, int64_t> best{std::numeric_limits<int64_t>::max(), std::numeric_limits<int64_t>::max()};
     std::vector<std::pair<int, path_t>> answer;
     std::vector<int> order;
-    const double base = runtime();
-    const double time_limit = base + (MAXTIME - base) / num_operations;
     auto proc = [&](const std::vector<int>& indices) {
-        std::vector<std::pair<int, path_t>> result;
+        int64_t loss = 0, length = 0;
+        std::vector<int> updated;
+        updated.reserve(indices.size());
         for (auto i : indices) {
-            auto prev = query[i].path;
             query[i].undo();
+            const auto& prev = query[i].backup;
             ::iterations += 1;
             auto new_path = search::astar(query[i], prev);
 #ifdef __SMZ_RUNTIME_CHECK
@@ -680,26 +682,33 @@ std::vector<int> solve(int e) {
             }
 #endif
             if (new_path.empty()) {
+                loss += query[i].value;
                 query[i].redo();
             }
             else {
-                query[i].plan(new_path);
-                result.emplace_back(i, new_path);
+                length += new_path.size() * (query[i].span + 1);
+                query[i].confirm(new_path);
+                updated.push_back(i);
+            }
+            if (std::make_tuple(loss, length) >= best) {
+                break;
             }
         }
-        int64_t sum_value = 0, sum_length = 0;
-        for (const auto& [i, new_path] : result) {
-            sum_value += query[i].value;
-            sum_length += new_path.size() * (query[i].span + 1);
-            query[i].cancel();
+        std::vector<std::pair<int, path_t>> result;
+        result.reserve(updated.size());
+        for (auto i : updated) {
+            auto new_path = query[i].cancel();
+            result.emplace_back(i, std::move(new_path));
         }
-        std::tuple<int64_t, int64_t> now{sum_value, -sum_length};
-        if (now > best) {
+        std::tuple<int64_t, int64_t> now{loss, length};
+        if (now < best) {
             best = now;
-            answer = result;
+            answer = std::move(result);
             order = indices;
         }
-        };
+    };
+    const double base = runtime();
+    const double time_limit = base + (MAXTIME - base) / num_operations;
     if (deleted.size() <= 3) {
         std::vector<int> permutation;
         for (int i = 0; i < deleted.size(); ++i) {
