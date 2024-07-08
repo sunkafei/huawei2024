@@ -329,13 +329,13 @@ namespace io {
     }
 }
 namespace testcase {
-    int n, m, q, p[MAXN];
+    int p[MAXN];
     std::pair<int, int> nodes[MAXM];
     std::vector<std::tuple<int, int, int, int, int, int, std::vector<int>>> business;
     void run() {
         io::start_reading();
-        n = io::read_int();
-        m = io::read_int();
+        ::n = io::read_int();
+        ::m = io::read_int();
         #ifdef __SMZ_RUNTIME_CHECK
         if (n < 2 || n > 200 || m < 1 || m > 1000) {
             abort();
@@ -362,7 +362,7 @@ namespace testcase {
             #endif
         }
         io::start_reading();
-        q = io::read_int();
+        ::q = io::read_int();
         for (int j = 1; j <= q; ++j) {
             io::start_reading();
             int s = io::read_int();
@@ -410,8 +410,6 @@ namespace testcase {
         }
         id += 1;
         #endif
-        ::n = n;
-        ::m = m;
         for (int i = 1; i <= n; ++i) {
             ::p[i] = p[i];
         }
@@ -428,7 +426,6 @@ namespace testcase {
             ::G[x].emplace_back(y, &::edges[i]);
             ::G[y].emplace_back(x, &::edges[i]);
         }
-        ::q = q;
         for (int i = 1; i <= business.size(); ++i) {
             const auto& [s, t, _, L, R, V, E] = business[i - 1];
             ::query[i].from = s;
@@ -449,94 +446,41 @@ namespace testcase {
     }
 }
 namespace search {
-    int first_vis[MAXN];
     int64_t last[MAXQ], visit[MAXN][MAXK], timestamp = 1;
     int dist[MAXN][MAXK], same[MAXN][MAXK];
+    int first_vis[MAXN];
     std::tuple<int, int, int> father[MAXN][MAXK];
-    std::bitset<MAXN> state[MAXN][MAXK];
-    deque_t<int, MAXN * MAXK * 2> A, B1, B2, C;
-    queue_t<int, MAXN> Q;
-    int baseline[MAXN][MAXN];
-    inline void preprocess(std::vector<int> deleted) {
-        std::sort(deleted.begin(), deleted.end());
-        auto iter = std::unique(deleted.begin(), deleted.end());
-        deleted.erase(iter, deleted.end());
-        for (auto i : deleted) {
-            const int start = query[i].to;
-			Q.clear();
-			for (int i = 1; i <= n; ++i) {
-				baseline[start][i] = INF;
-			}
-			baseline[start][start] = 0;
-			Q.push(start);
-			while (Q.size()) {
-				auto x = Q.front(); Q.pop();
-				for (auto [y, _] : G[x]) {
-					if (baseline[start][y] == INF) {
-						baseline[start][y] = baseline[start][x] + 1;
-						Q.push(y);
-					}
-				}
-			}
-        }
+    deque_t<std::pair<int, int>, MAXN * MAXK> queue;
+    template<typename T> void preprocess(const T&) {
+        
     }
-    inline path_t astar(const query_t& qry, const path_t& prev) noexcept {
-        if (baseline[qry.to][qry.from] == INF) {
-            return {};
-        }
+    inline path_t search(const query_t& qry, const path_t& prev) noexcept {
+        static std::bitset<MAXN> state[MAXN][MAXK];
         timestamp += 2;
-        A.clear(); B1.clear(); B2.clear(); C.clear();
+        queue.clear();
         for (auto [e, _] : prev) {
             last[e] = timestamp;
         }
         for (int i = 1; i <= n; ++i) {
             first_vis[i] = false;
         }
-        for (int j = 1; j + qry.span <= k; ++j) {
+        for (int j = k - qry.span; j > 0; --j) {
             visit[qry.from][j] = timestamp;
             same[qry.from][j] = 0;
             dist[qry.from][j] = 0;
             state[qry.from][j].reset();
             state[qry.from][j].set(qry.from);
-            A.push_back(qry.from | (j << 12));
+            queue.emplace_back(qry.from, j);
         }
         int channel = -1;
-        while (A.size() || B1.size() || B2.size() || C.size()) {
-			while (A.empty()) {
-				A.clear();
-                //todo：更新合并方式
-                while (B1.size() && B2.size()) {
-                    if (B1.front() > B2.front()) {
-                        A.push_front(B1.front());
-                        B1.pop_front();
-                    }
-                    else {
-                        A.push_front(B2.front());
-                        B2.pop_front();
-                    }
-                }
-				while (B1.size()) {
-					A.push_front(B1.front());
-					B1.pop_front();
-				}
-				while (B2.size()) {
-					A.push_front(B2.front());
-					B2.pop_front();
-				}
-				B1.clear();
-				B2.clear();
-				std::swap(B2, C);
-			}
-			auto tmp = A.back(); A.pop_back();
-			int x = tmp & 0xFFF, i = tmp >> 12;
-            if (visit[x][i] > timestamp) {
-                continue;
-            }
+        while (!queue.empty()) {
+            auto [x, i] = queue.front();
+            queue.pop_front();
             if (x == qry.to) [[unlikely]] {
                 channel = i;
                 break;
             }
-            int base = dist[x][i] + baseline[qry.to][x];
+            if (visit[x][i] > timestamp) continue;
             if (p[x] > 0 && !first_vis[x]) {
                 first_vis[x] = true;
                 for (int j = 1; j + qry.span <= k; ++j) {
@@ -547,7 +491,7 @@ namespace search {
                         state[x][j] = state[x][i];
                         father[x][j] = {x, i, -1};
                     }
-                    A.push_back(x | (j << 12));
+                    queue.emplace_front(x, j);
                 }
                 continue;
             }
@@ -560,32 +504,15 @@ namespace search {
                 if (state[x][i].test(y)) [[unlikely]] {
                     continue;
                 }
-                if (visit[y][i] < timestamp) {
-                    visit[y][i] = timestamp;
-                    dist[y][i] = INF;
-                }
                 const int weight = last[info->index] == timestamp;
-                if (dist[y][i] > dist[x][i] + 1) {
+                if (visit[y][i] < timestamp || dist[y][i] > dist[x][i] + 1) {
+                    visit[y][i] = timestamp;
                     same[y][i] = same[x][i] + weight;
                     dist[y][i] = dist[x][i] + 1;
                     state[y][i] = state[x][i];
                     state[y][i].set(y);
+                    queue.emplace_back(y, i);
                     father[y][i] = {x, std::get<0>(father[x][i]) == x ? std::get<1>(father[x][i]) : i, info->index};
-                    int estimate = dist[y][i] + baseline[qry.to][y];
-                    if (estimate == base) {
-						A.push_front(y | (i << 12)); //todo: push_back
-					}
-					else if (estimate == base + 1) {
-						B1.push_front(y | (i << 12)); //todo
-					}
-					else {
-                        #ifdef __SMZ_RUNTIME_CHECK
-						if (estimate != base + 2) {
-                            abort();
-                        }
-                        #endif
-						C.push_front(y | (i << 12)); //todo
-					}
                 }
                 else if (dist[y][i] == dist[x][i] + 1 && same[y][i] < same[x][i] + weight) {
                     same[y][i] = same[x][i] + weight;
@@ -598,10 +525,7 @@ namespace search {
         if (channel == -1) {
             return {};
         }
-        const int length = dist[qry.to][channel];
         path_t path;
-        path.reserve(length);
-        int tmp = channel;
         int node = qry.to;
         while (node != qry.from) {
             auto [prev_node, prev_channel, e] = father[node][channel];
@@ -614,11 +538,6 @@ namespace search {
             }
             #endif
         }
-        #ifdef __SMZ_RUNTIME_CHECK
-        if (path.size() != length) {
-            abort();
-        }
-        #endif
         std::reverse(path.begin(), path.end());
         return path;
     }
@@ -669,7 +588,7 @@ std::vector<int> solve(int e) {
             query[i].undo();
             const auto& prev = query[i].backup;
             ::iterations += 1;
-            auto new_path = search::astar(query[i], prev);
+            auto new_path = search::search(query[i], prev);
 #ifdef __SMZ_RUNTIME_CHECK
             int node = query[i].from;
             std::vector<int> nodes(1, node);
@@ -803,8 +722,27 @@ int main() {
 
     //输出瓶颈断边场景的交互部分
     io::start_writing();
-    io::write_int(0);
+    const int T1 = m > 120 ? 50 : 0;
+    io::write_int(T1);
     io::flush();
+    std::uniform_int_distribution<int> gen(1, m);
+    std::mt19937 mt(20140920);
+    for (int i = 0; i < T1; ++i) {
+        int c = 50;
+        io::start_writing();
+        io::write_int(c);
+        io::newline();
+        std::unordered_set<int> visit;
+        for (int j = 0; j < c; ++j) {
+            int e = gen(mt);
+            while (visit.count(e)) {
+                e = gen(mt);
+            }
+            visit.insert(e);
+            io::write_int(e);
+        }
+        io::flush();
+    }
 
     //输出瓶颈断边场景的交互部分
     io::start_reading();
