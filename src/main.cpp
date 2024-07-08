@@ -187,6 +187,7 @@ struct query_t {
 } query[MAXQ];
 std::mt19937 engine;
 std::vector<std::pair<int, edge_t*>> G[MAXN];
+std::vector<std::vector<int>> pretests;
 const auto start_time = std::chrono::steady_clock::now();
 template<typename... T> void print(const T&... sth) {
 #ifdef __SMZ_NATIVE_TEST
@@ -713,47 +714,99 @@ std::vector<int> solve(int e) {
 #endif
     return ret;
 }
-int main() {
-#ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("../release/testcase2.in", "r", stdin);
-    std::ignore = freopen("../release/output.txt", "w", stdout);
-#endif
-    testcase::run();
-
-    //输出瓶颈断边场景的交互部分
+void generate() { //输出瓶颈断边场景的交互部分
+    auto check = [](const auto& deleted) {
+        auto jaccard = [](const auto& A, const auto& B) {
+            static int64_t timestamp = 1;
+            static int64_t visit[MAXM];
+            double x = 0, y = A.size();
+            timestamp += 1;
+            for (auto v : A) {
+                visit[v] = timestamp;
+            }
+            for (auto v : B) {
+                if (visit[v] == timestamp) {
+                    x += 1;
+                }
+                else {
+                    y += 1;
+                }
+            }
+            return x / y;
+        };
+        for (const auto& pre : pretests) {
+            if (jaccard(pre, deleted) > 0.6) {
+                return false;
+            }
+        }
+        return true;
+    };
     io::start_writing();
-    const int T1 = m > 120 ? 50 : 0;
+    const int T1 = 50;
     io::write_int(T1);
     io::flush();
     std::uniform_int_distribution<int> gen(1, m);
     std::mt19937 mt(20140920);
     for (int i = 0; i < T1; ++i) {
-        int c = 50;
+        int c = std::min(50, m / 2);
         io::start_writing();
         io::write_int(c);
         io::newline();
-        std::unordered_set<int> visit;
-        for (int j = 0; j < c; ++j) {
-            int e = gen(mt);
-            while (visit.count(e)) {
-                e = gen(mt);
+        std::vector<int> deleted;
+        do {
+            deleted.clear();
+            std::unordered_set<int> visit;
+            for (int j = 0; j < c; ++j) {
+                int e = gen(mt);
+                while (visit.count(e)) {
+                    e = gen(mt);
+                }
+                visit.insert(e);
+                deleted.push_back(e);
             }
-            visit.insert(e);
+        } while (!check(deleted));
+        for (auto e : deleted) {
             io::write_int(e);
         }
         io::flush();
+        pretests.push_back(std::move(deleted));
     }
+    #ifdef __SMZ_NATIVE_TEST
+    print("生成数据完毕。");
+    #endif
+}
+int main() {
+#ifdef __SMZ_NATIVE_TEST
+    std::ignore = freopen("../release/testcase1.in", "r", stdin);
+    std::ignore = freopen("../release/output.txt", "w", stdout);
+#endif
+    testcase::run();
+
+    generate();
 
     //输出瓶颈断边场景的交互部分
     io::start_reading();
     int T = io::read_int();
+    int idx = 0;
+    #ifdef __SMZ_NATIVE_TEST
+    T += pretests.size();
+    if (pretests.empty()) {
+        abort();
+    }
+    #endif
     double score = 0;
     while (T) {
         testcase::start();
+        std::vector<int> data;
 #ifdef __SMZ_NATIVE_TEST
         uint64_t total = 0, rest = 0;
         for (int i = 1; i <= q; ++i) {
             total += query[i].value;
+        }
+        if (idx < pretests.size()) {
+            data = pretests[idx];
+            data.push_back(-1);
+            std::reverse(data.begin(), data.end());
         }
 #endif
         const int maxfail = std::min(m, 50);
@@ -761,8 +814,15 @@ int main() {
             num_operations = T * maxfail;
         }
         for (;;) {
-            io::start_reading();
-            int e = io::read_int();
+            int e;
+            if (data.size()) {
+                e = data.back();
+                data.pop_back();
+            }
+            else {
+                io::start_reading();
+                e = io::read_int();
+            }
             if (e == -1) {
                 break;
             }
