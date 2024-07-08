@@ -17,7 +17,7 @@ constexpr int MAXM = 1024;
 constexpr int MAXQ = 6000;
 constexpr int MAXTIME = 89;
 int64_t iterations = 0;
-int num_operations = 6000;
+int num_operations = INF;
 int n, m, q, p[MAXN];
 using path_t = std::vector<std::pair<int, int>>;
 struct edge_t {
@@ -643,6 +643,13 @@ int main() {
     std::ignore = freopen("../release/output.txt", "w", stdout);
 #endif
     testcase::run();
+
+    //输出瓶颈断边场景的交互部分
+    io::start_writing();
+    io::write_int(0);
+    io::flush();
+
+    //输出瓶颈断边场景的交互部分
     io::start_reading();
     int T = io::read_int();
     double score = 0;
@@ -654,8 +661,9 @@ int main() {
             total += query[i].value;
         }
 #endif
-        if (num_operations > T * m) {
-            num_operations = T * m;
+        const int maxfail = std::min(m, 50);
+        if (num_operations > T * maxfail) {
+            num_operations = T * maxfail;
         }
         for (;;) {
             io::start_reading();
