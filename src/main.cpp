@@ -748,7 +748,7 @@ void generate() { //输出瓶颈断边场景的交互部分
     std::uniform_int_distribution<int> gen(1, m);
     std::mt19937 mt(20140920);
     for (int i = 0; i < T1; ++i) {
-        int c = std::min(50, m / 2);
+        int c = std::min(50, m / 3);
         io::start_writing();
         io::write_int(c);
         io::newline();
@@ -813,7 +813,7 @@ int main() {
         if (num_operations > T * maxfail) {
             num_operations = T * maxfail;
         }
-        for (;;) {
+        for (int j = 0; ;++j) {
             int e;
             if (data.size()) {
                 e = data.back();
@@ -826,6 +826,9 @@ int main() {
             if (e == -1) {
                 break;
             }
+            //if (idx < pretests.size() && e != pretests[idx][j]) {
+            //    abort();
+            //}
             auto indices = solve(e);
             io::start_writing();
             io::write_int((int)indices.size());
@@ -851,6 +854,7 @@ int main() {
             rest += query[i].value;
         }
         score += rest * 10000.0 / total;
+        idx += 1;
 #endif
     }
 #ifdef __SMZ_NATIVE_TEST
