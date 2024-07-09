@@ -623,6 +623,8 @@ namespace search {
     }
 }
 namespace solver {
+    int64_t visit[MAXQ];
+    int64_t timestamp = 1;
     void cut(int e) {
         int s = edges[e].first, t = edges[e].second;
         for (int i = 0; i < G[s].size(); ++i) {
@@ -656,7 +658,7 @@ namespace solver {
         }
         #endif
         auto iter = std::remove_if(deleted.begin(), deleted.end(), [](int i) {
-            return query[i].dead;
+            return query[i].dead || visit[i] == timestamp;
         });
         deleted.erase(iter, deleted.end());
         if constexpr (sort) {
@@ -740,6 +742,7 @@ namespace solver {
         #endif
     }
     std::vector<int> solve(int e) {
+        timestamp += 1;
         cut(e);
         auto deleted = get_deleted(e);
         std::vector<int> nodes;
@@ -836,6 +839,7 @@ namespace solver {
         return ret;
     }
     std::vector<std::vector<int>> solve(const std::vector<int>& scene) {
+        timestamp += 1;
         cut(scene);
         std::vector<int> nodes(n, 0);
         for (int i = 0; i < nodes.size(); ++i) {
@@ -852,6 +856,7 @@ namespace solver {
                 auto deleted = get_deleted<false>(e);
                 updated[idx].reserve(deleted.size());
                 for (auto i : deleted) {
+                    visit[i] = timestamp;
                     query[i].undo();
                     ::iterations += 1;
                     auto new_path = search::search(query[i]);
@@ -888,7 +893,7 @@ namespace solver {
                 #ifdef __SMZ_RUNTIME_CHECK
                 std::vector<int> modified;
                 for (const auto& vec : result) {
-                    for (const auto& [i, _] : vec) {
+                    for (const auto& [i, _] : vec) if (i > 0) {
                         modified.push_back(i);
                     }
                 }
