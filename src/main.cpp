@@ -1075,12 +1075,12 @@ int main() noexcept {
             num_operations -= 1;
         }
         T -= 1;
+        idx += 1;
 #ifdef __SMZ_NATIVE_TEST
         for (int i = 1; i <= q; ++i) if (!query[i].dead) {
             rest += query[i].value;
         }
         score += rest * 10000.0 / total;
-        idx += 1;
 #endif
     }
 #ifdef __SMZ_NATIVE_TEST
