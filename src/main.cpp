@@ -841,7 +841,7 @@ void generate() { //输出瓶颈断边场景的交互部分
         pretests.push_back(std::move(deleted));
     }
     #ifdef __SMZ_NATIVE_TEST
-    print("生成数据完毕。");
+    print("Data Generated.");
     #endif
 }
 int main() {
