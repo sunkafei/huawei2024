@@ -839,7 +839,6 @@ namespace solver {
         return ret;
     }
     std::vector<std::vector<int>> solve(const std::vector<int>& scene) {
-        timestamp += 1;
         cut(scene);
         std::vector<int> nodes(n, 0);
         for (int i = 0; i < nodes.size(); ++i) {
@@ -849,6 +848,7 @@ namespace solver {
         int64_t best = std::numeric_limits<int64_t>::max();
         std::vector<std::vector<std::pair<int, path_t>>> answer;
         auto proc = [&]() {
+            timestamp += 1;
             int64_t loss = 0;
             std::vector<std::vector<int>> updated(scene.size());
             for (int idx = 0; idx < scene.size(); ++idx) {
