@@ -733,7 +733,7 @@ std::vector<int> solve(int e) {
     }
     else {
         proc(deleted);
-        std::bernoulli_distribution bernoulli(1.0 / std::sqrt(deleted.size()));
+        std::bernoulli_distribution bernoulli(std::pow(deleted.size(), -1.0 / 3));
         while (runtime() < time_limit) {
             std::vector<int> indices = order;
             for (int i = 1; i < indices.size(); ++i) if (bernoulli(engine)) {
