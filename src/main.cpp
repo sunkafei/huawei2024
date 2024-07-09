@@ -813,7 +813,7 @@ int main() {
         if (num_operations > T * maxfail) {
             num_operations = T * maxfail;
         }
-        for (int j = 0; ;++j) {
+        for (;;) {
             int e;
             if (data.size()) {
                 e = data.back();
@@ -826,9 +826,6 @@ int main() {
             if (e == -1) {
                 break;
             }
-            //if (idx < pretests.size() && e != pretests[idx][j]) {
-            //    abort();
-            //}
             auto indices = solve(e);
             io::start_writing();
             io::write_int((int)indices.size());
@@ -858,9 +855,9 @@ int main() {
 #endif
     }
 #ifdef __SMZ_NATIVE_TEST
-    print("Score: ", (int)score);       //8204340   480152
+    print("Score: ", (int)score);       //785964   8534297
     print("Runtime: ", runtime());
-    print("Iterations: ", iterations);  //53681198  11316254
+    print("Iterations: ", iterations);  //24504570  2269976
 #endif
     return 0;
 }
