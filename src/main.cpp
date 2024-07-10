@@ -90,7 +90,8 @@ struct query_t {
     int index;
     int span;
     bool dead;
-    path_t path, backup;
+    path_t path;
+    std::vector<path_t> backup;
     static inline int64_t vis[MAXQ];
     static inline int64_t timestamp = 1;
     template<bool first=true, bool update=false> void apply(const path_t& new_path) const {
@@ -153,28 +154,29 @@ struct query_t {
         }
     }
     template<bool update=false> void undo() {
-        backup = std::move(path);
+        backup.push_back(std::move(path));
         path.clear();
-        undo<true, update>(backup);
+        undo<true, update>(backup.back());
     }
     template<bool update=false> void redo() {
-        path = std::move(backup);
-        backup.clear();
+        path = std::move(backup.back());
+        backup.pop_back();
         apply<true, update>(path);
     }
     void confirm(path_t&& new_path) {
         path = std::move(new_path);
         timestamp += 1;
         apply<true>(path);
-        apply<false>(backup);
+        apply<false>(backup.back());
     }
     auto cancel() {
         timestamp += 1;
-        undo<true>(backup);
+        undo<true>(backup.back());
         undo<false>(path);
-        apply(backup);
+        apply(backup.back());
         auto ret = std::move(path);
-        path = std::move(backup);
+        path = std::move(backup.back());
+        backup.pop_back();
         return ret;
     }
     void replace(path_t&& new_path) {
@@ -187,15 +189,16 @@ struct query_t {
     }
     void commit() {
         timestamp += 1;
-        undo<true>(backup);
+        undo<true, true>(backup.back());
         undo<false>(path);
-        apply(path);
+        apply<true, true>(path);
     }
     auto rollback() {
-        undo(path);
-        apply(backup);
+        undo<true, true>(path);
+        apply<true, true>(backup.back());
         auto ret = std::move(path);
-        path = std::move(backup);
+        path = std::move(backup.back());
+        backup.pop_back();
         return ret;
     }
 } query[MAXQ];
@@ -466,12 +469,12 @@ namespace testcase {
             if (::edges[i].first != x || ::edges[i].second != y || ::edges[i].index != i || ::edges[i].deleted) {
                 abort();
             }
-            /*if (std::find(G[x].begin(), G[x].end(), std::make_pair(y, &::edges[i])) == G[x].end()) {
+            if (std::find(G[x].begin(), G[x].end(), std::make_pair(y, &::edges[i])) == G[x].end()) {
                 abort();
             }
             if (std::find(G[y].begin(), G[y].end(), std::make_pair(x, &::edges[i])) == G[y].end()) {
                 abort();
-            }*/
+            }
         }
         for (int i = 1; i <= business.size(); ++i) {
             const auto& [s, t, _, L, R, V, E] = business[i - 1];
@@ -479,6 +482,13 @@ namespace testcase {
                 abort();
             }
             if (::query[i].value != V || ::query[i].index != i || ::query[i].span != R - L || ::query[i].dead) {
+                abort();
+            }
+            path_t tmp;
+            for (auto e : E) {
+                tmp.emplace_back(e, L);
+            }
+            if (::query[i].path != tmp) {
                 abort();
             }
         }
@@ -665,8 +675,6 @@ namespace search {
     }
 }
 namespace solver {
-    int64_t visit[MAXQ];
-    int64_t timestamp = 1;
     void cut(int e) {
         #ifdef __SMZ_RUNTIME_CHECK
         if (e <= 0 || e > m) {
@@ -720,7 +728,7 @@ namespace solver {
         }
         #endif
         auto iter = std::remove_if(deleted.begin(), deleted.end(), [](int i) {
-            return query[i].dead || visit[i] == timestamp;
+            return query[i].dead;
         });
         deleted.erase(iter, deleted.end());
         if constexpr (sort) {
@@ -770,15 +778,8 @@ namespace solver {
     }
     template<typename T> void check_ret(const T& ret) {
         #ifdef __SMZ_RUNTIME_CHECK
-        for (auto v : ret) {
-            std::vector<int> indices;
-            if constexpr (std::is_same_v<decltype(v), int>) {
-                indices = {v};
-            }
-            else {
-                indices = v;
-            }
-            for (auto i : indices) {
+        if constexpr (std::is_same_v<decltype(ret), std::vector<int>>) {
+            for (auto i : ret) {
                 if (query[i].dead) {
                     abort();
                 }
@@ -804,7 +805,6 @@ namespace solver {
         #endif
     }
     std::vector<int> solve(int e) {
-        timestamp += 1;
         cut(e);
         auto deleted = get_deleted(e);
         std::vector<int> nodes;
@@ -906,80 +906,67 @@ namespace solver {
             nodes[i] = i + 1;
         }
         search::preprocess(nodes); //todo
-        cut(scene);
         int64_t best = std::numeric_limits<int64_t>::max();
-        std::vector<std::vector<std::tuple<int, int, path_t>>> answer;
+        std::vector<std::vector<std::pair<int, path_t>>> answer;
         auto proc = [&]() {
-            timestamp += 1;
             int64_t loss = 0;
-            std::vector<std::vector<std::pair<int, int>>> updated(scene.size());
+            std::vector<std::vector<int>> updated(scene.size());
             for (int idx = 0; idx < scene.size(); ++idx) {
                 auto e = scene[idx];
+                cut(e);
                 auto deleted = get_deleted<false>(e);
                 updated[idx].reserve(deleted.size());
                 for (auto i : deleted) {
-                    visit[i] = timestamp;
                     query[i].undo();
                     ::iterations += 1;
                     auto new_path = search::search(query[i]);
                     check_path(i, new_path);
-                    int flag = -1;
                     if (new_path.empty()) {
                         loss += query[i].value;
-                        std::vector<int> tmp(scene.begin() + idx + 1, scene.end());
-                        resume(tmp);
-                        auto new_path2 = search::search(query[i]);
-                        check_path(i, new_path2);
-                        if (new_path2.size() < new_path.size()) {
-                            new_path = std::move(new_path2);
-                            flag = 0;
-                        }
-                        cut(tmp);
-                    }
-                    else {
-                        flag = 1;
-                    }
-                    if (new_path.empty()) {
                         query[i].redo();
+                        query[i].dead = true;
+                        updated[idx].push_back(-i);
                     }
                     else {
                         query[i].confirm(std::move(new_path));
+                        updated[idx].push_back(i);
                     }
-                    updated[idx].emplace_back(i, flag);
-                    if (loss >= best) {
+                    if (loss >= best) { //todo: goto
                         break;
                     }
                 }
-                for (auto [i, state] : updated[idx]) if (state >= 0) {
+                for (auto i : updated[idx]) if (i > 0) {
                     query[i].commit();
                 }
             }
-            std::vector<std::vector<std::tuple<int, int, path_t>>> result(scene.size());
+            resume(scene);
+            std::vector<std::vector<std::pair<int, path_t>>> result(scene.size());
             for (int idx = (int)scene.size() - 1; idx >= 0; --idx) {
                 result[idx].reserve(updated[idx].size());
-                for (auto [i, state] : updated[idx]) {
-                    if (state >= 0) {
+                for (auto i : updated[idx]) {
+                    if (i > 0) {
                         auto new_path = query[i].rollback();
-                        result[idx].emplace_back(i, state == 0, std::move(new_path));
+                        result[idx].emplace_back(i, std::move(new_path));
                     }
                     else {
-                        result[idx].emplace_back(i, true, path_t{});
+                        query[-i].dead = false;
+                        result[idx].emplace_back(i, path_t{});
                     }
                 }
-                #ifdef __SMZ_RUNTIME_CHECK
-                std::vector<int> modified;
-                for (const auto& vec : result) {
-                    for (const auto& [i, state, _] : vec) if (state >= 0) {
-                        modified.push_back(i);
-                    }
-                }
-                std::sort(modified.begin(), modified.end());
-                auto iter = std::unique(modified.begin(), modified.end());
-                if (iter != modified.end()) {
-                    abort();
-                }
-                #endif
             }
+            #ifdef __SMZ_RUNTIME_CHECK
+            std::vector<int> modified;
+            for (const auto& vec : result) {
+                for (const auto& [i, _] : vec) if (i < 0) {
+                    modified.push_back(i);
+                }
+            }
+            std::sort(modified.begin(), modified.end());
+            auto iter = std::unique(modified.begin(), modified.end());
+            if (iter != modified.end()) {
+                abort();
+            }
+            #endif
             if (loss < best) {
                 best = loss;
                 answer = std::move(result);
@@ -996,13 +983,13 @@ namespace solver {
         std::vector<std::vector<int>> ret(answer.size());
         for (int idx = 0; idx < answer.size(); ++idx) {
             for (auto iter = answer[idx].begin(); iter != answer[idx].end(); ++iter) {
-                auto [i, del, new_path] = std::move(*iter);
-                if (!del) {
+                auto [i, new_path] = std::move(*iter);
+                if (i > 0) {
                     ret[idx].push_back(i);
                     query[i].replace(std::move(new_path));
                 }
                 else {
-                    query[i].dead = true;
+                    query[-i].dead = true;
                 }
             }
         }
