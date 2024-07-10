@@ -646,6 +646,16 @@ namespace solver {
             cut(e);
         }
     }
+    void resume(int e) {
+        int s = edges[e].first, t = edges[e].second;
+        G[s].emplace_back(t, &edges[e]);
+        G[t].emplace_back(s, &edges[e]);
+    }
+    void resume(const std::vector<int>& scene) {
+        for (auto e : scene) {
+            resume(e);
+        }
+    }
     template<bool sort=true> std::vector<int> get_deleted(int e) {
         std::vector<int> deleted = edges[e].occupied;
         #ifdef __SMZ_RUNTIME_CHECK
@@ -839,12 +849,12 @@ namespace solver {
         return ret;
     }
     std::vector<std::vector<int>> solve(const std::vector<int>& scene) {
-        cut(scene);
         std::vector<int> nodes(n, 0);
         for (int i = 0; i < nodes.size(); ++i) {
             nodes[i] = i + 1;
         }
-        search::preprocess(nodes);
+        search::preprocess(nodes); //todo
+        cut(scene);
         int64_t best = std::numeric_limits<int64_t>::max();
         std::vector<std::vector<std::pair<int, path_t>>> answer;
         auto proc = [&]() {
@@ -863,6 +873,12 @@ namespace solver {
                     check_path(i, new_path);
                     if (new_path.empty()) {
                         loss += query[i].value;
+                        std::vector<int> tmp(scene.begin() + idx + 1, scene.end());
+                        resume(tmp);
+                        new_path = search::search(query[i]);
+                        cut(tmp);
+                    }
+                    if (new_path.empty()) {
                         query[i].redo();
                         updated[idx].push_back(-i);
                     }
