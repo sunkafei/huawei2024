@@ -27,7 +27,8 @@ vector<pair<int,int> >edge;
 vector<pair<int,int> >to[MAXN];
 bitset<K> h[MAXM];
 vector<tag>mission;
-int n = 200,m = 1000;
+// int n = 200,m = 1000;
+int n=30,m=100;
 int p[207] = {0};
 
 
@@ -196,7 +197,7 @@ int main(){
     // sort(edge.begin(),edge.end());
 
 
-    int J = 5000;
+    int J = 100;
     for(int i = 1;i <= J;i++) {
         if(i % 500 == 0) cout << i << endl;
         tag tp;
