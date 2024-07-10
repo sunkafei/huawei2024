@@ -11,6 +11,7 @@
 #include <set>
 #include <assert.h>
 #include <cmath>
+#include <cstdlib>
 using namespace std;
 const int MAXN = 207, MAXM = 1000;
 const int Q_LIM = 2007, K=40;
@@ -235,6 +236,7 @@ int main(){
 
     while(t) {
         int x = round(num[t] * 6000 / sum);
+        x = min(x,50);
         int kill[MAXM] = {0};
         for(int j = 1;j <= m;j++) kill[j] = j;
         random_shuffle(kill+1,kill + m + 1);
@@ -252,5 +254,9 @@ int main(){
     //     outfile << -1 << endl;
     //     t--;
     // }
+
+    string command = "main <" + output_file;
+    cout << command;
+    system(command.c_str());
     return 0;
 }

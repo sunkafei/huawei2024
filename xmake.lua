@@ -4,7 +4,7 @@ target("main")
     set_kind("binary")
     add_files("src/*.cpp")
     set_languages("c++17")
-    add_defines("__SMZ_NATIVE_TEST")
+    -- add_defines("__SMZ_NATIVE_TEST")
     if is_mode("debug") then 
         add_defines("__SMZ_RUNTIME_CHECK")
         add_cxflags("-fsanitize=address")
