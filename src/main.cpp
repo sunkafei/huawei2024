@@ -613,7 +613,65 @@ namespace search {
         return path;
     }
 }
-std::vector<int> solve(int e) {
+
+path_t bfs(const query_t& qry) {
+    static int dist[MAXN][MAXK];
+    static int pop_vis[MAXN][MAXK];
+    static std::tuple<int, int, int> father[MAXN][MAXK];
+    for (int i = 1; i <= n; ++i) {
+        for (int j = 1; j <= k; ++j) {
+            dist[i][j] = INF;
+            pop_vis[i][j] = false;
+        }
+    }
+    std::deque<std::pair<int, int>> queue;
+    for (int j = 1; j <= k - qry.span; ++j) {
+        queue.emplace_back(qry.from, j);
+        dist[qry.from][j] = 0;
+    }
+    int channel = 1;
+    while (!queue.empty()) {
+        auto [x, i] = queue.front();
+        queue.pop_front();
+        if (x == qry.to) {
+            channel = i;
+            break;
+        }
+        if(pop_vis[x][i]) continue;
+        pop_vis[x][i] = true;
+        const uint64_t mask = (1ull << (i + qry.span + 1)) - (1ull << i);
+        for (auto [y, info] : G[x]) {
+            if (!info->empty(mask)) {
+                continue;
+            }
+            if (dist[y][i] > dist[x][i] + 1) {
+                dist[y][i] = dist[x][i] + 1;
+                queue.emplace_back(y, i);
+                father[y][i] = {x, i, info->index};
+            }
+        }
+    }
+    if (dist[qry.to][channel] == INF) {
+        return {};
+    }
+    path_t path;
+    int node = qry.to;
+    while (node != qry.from) {
+        auto [prev_node, prev_channel, e] = father[node][channel];
+        path.emplace_back(e, channel);
+        node = prev_node;
+        channel = prev_channel;
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (node <= 0 || p[node] < -1 || node > n || channel <= 0 || channel > k) {
+            abort();
+        }
+        #endif
+    }
+    std::reverse(path.begin(), path.end());
+    return path;
+}
+
+template <bool once=false, bool is_baseline=false> std::vector<int> solve(int e) {
     int s = edges[e].first, t = edges[e].second;
     for (int i = 0; i < G[s].size(); ++i) {
         if (G[s][i].second->index == e) {
@@ -658,7 +716,13 @@ std::vector<int> solve(int e) {
         for (auto i : indices) {
             query[i].undo();
             ::iterations += 1;
-            auto new_path = search::search(query[i]);
+            path_t new_path;
+             if constexpr (is_baseline){
+                new_path = bfs(query[i]);
+            }else{
+                new_path = search::search(query[i]);
+            }
+            
 #ifdef __SMZ_RUNTIME_CHECK
             int node = query[i].from;
             std::vector<int> nodes(1, node);
@@ -718,31 +782,36 @@ std::vector<int> solve(int e) {
     };
     const double base = runtime();
     const double time_limit = base + (MAXTIME - base) / num_operations;
-    if (deleted.size() <= 3) {
-        std::vector<int> permutation;
-        for (int i = 0; i < deleted.size(); ++i) {
-            permutation.push_back(i);
-        }
-        do {
-            std::vector<int> indices;
-            for (auto i : permutation) {
-                indices.push_back(deleted[i]);
-            }
-            proc(indices);
-        } while (runtime() < time_limit && std::next_permutation(permutation.begin(), permutation.end()));
-    }
-    else {
+    if constexpr (once){
         proc(deleted);
-        std::bernoulli_distribution bernoulli(std::pow(deleted.size(), -1.0 / 3));
-        while (runtime() < time_limit) {
-            std::vector<int> indices = order;
-            for (int i = 1; i < indices.size(); ++i) if (bernoulli(engine)) {
-                int j = std::rand() % i;
-                std::swap(indices[i], indices[j]);
+    }else{
+        if (deleted.size() <= 3) {
+            std::vector<int> permutation;
+            for (int i = 0; i < deleted.size(); ++i) {
+                permutation.push_back(i);
             }
-            proc(indices);
+            do {
+                std::vector<int> indices;
+                for (auto i : permutation) {
+                    indices.push_back(deleted[i]);
+                }
+                proc(indices);
+            } while (runtime() < time_limit && std::next_permutation(permutation.begin(), permutation.end()));
+        }
+        else {
+            proc(deleted);
+            std::bernoulli_distribution bernoulli(std::pow(deleted.size(), -1.0 / 3));
+            while (runtime() < time_limit) {
+                std::vector<int> indices = order;
+                for (int i = 1; i < indices.size(); ++i) if (bernoulli(engine)) {
+                    int j = std::rand() % i;
+                    std::swap(indices[i], indices[j]);
+                }
+                proc(indices);
+            }
         }
     }
+    
     static uint64_t flag[MAXQ], timestamp = 1;
     timestamp += 1;
     std::vector<int> ret;
@@ -816,11 +885,13 @@ void generate() { //输出瓶颈断边场景的交互部分
     io::flush();
     std::uniform_int_distribution<int> gen(1, m);
     std::mt19937 mt(20140920);
+    testcase::start();
+    long long total = 0;
+    for (int j = 1; j <= q; ++j) {
+        total += query[j].value;
+    }
     for (int i = 0; i < T1; ++i) {
-        int c = std::min(50, m / 3);
-        io::start_writing();
-        io::write_int(c);
-        io::newline();
+        int c = std::min(50, m);
         std::vector<int> deleted;
         do {
             deleted.clear();
@@ -833,7 +904,40 @@ void generate() { //输出瓶颈断边场景的交互部分
                 visit.insert(e);
                 deleted.push_back(e);
             }
-        } while (!check(deleted));
+            std::vector <double> score, score_baseline;
+            testcase::start();
+            for(auto e : deleted){
+                solve<true, false>(e);
+                double rest = 0;
+                for (int j = 1; j <= q; ++j) if (!query[j].dead) {
+                    rest += query[j].value;
+                }
+                score.push_back(rest * 10000.0 / total);
+            }
+            testcase::start();
+            for(auto e : deleted){
+                solve<true, true>(e);
+                double rest = 0;
+                for (int j = 1; j <= q; ++j) if (!query[j].dead) {
+                    rest += query[j].value;
+                }
+                score_baseline.push_back(rest * 10000.0 / total);
+            }
+
+            int mx = 0;
+            double delta = score[0] - score_baseline[0];
+            for (int j = 0; j < c; ++j) {
+                auto d = score[j] - score_baseline[j];
+                if(d > delta){
+                    delta = d;
+                    mx = j;
+                }
+            }
+            deleted.resize(mx + 1);
+        } while (deleted.size() == 1 || !check(deleted));
+        io::start_writing();
+        io::write_int(deleted.size());
+        io::newline();
         for (auto e : deleted) {
             io::write_int(e);
         }
