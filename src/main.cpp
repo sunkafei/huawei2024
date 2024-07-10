@@ -615,7 +615,7 @@ namespace search {
     }
 }
 
-path_t bfs(const query_t& qry, int start_c=1) {
+path_t bfs(const query_t& qry) {
     static int dist[MAXN][MAXK];
     static int pop_vis[MAXN][MAXK];
     static std::tuple<int, int, int> father[MAXN][MAXK];
@@ -625,65 +625,39 @@ path_t bfs(const query_t& qry, int start_c=1) {
             pop_vis[i][j] = false;
         }
     }
-    // std::deque<std::pair<int, int>> queue;
-    // for (int j = 1; j <= k - qry.span; ++j) {
-    //     queue.emplace_back(qry.from, j);
-    //     dist[qry.from][j] = 0;
-    // }
-    int channel = 1;
-    std::deque<std::pair<int, int>> queue;
-    queue.emplace_back(qry.from, start_c);
-    dist[qry.from][start_c] = 0;
-    while (!queue.empty()) {
-        auto [x, i] = queue.front();
-        queue.pop_front();
-        if (x == qry.to) {
-            channel = i;
-            break;
-        }
-        if(pop_vis[x][i]) continue;
-        pop_vis[x][i] = true;
-        const uint64_t mask = (1ull << (i + qry.span + 1)) - (1ull << i);
-        for (auto [y, info] : G[x]) {
-            if (!info->empty(mask)) {
-                continue;
-            }
-            if (dist[y][i] > dist[x][i] + 1) {
-                dist[y][i] = dist[x][i] + 1;
-                queue.emplace_back(y, i);
-                father[y][i] = {x, i, info->index};
-            }
-        }
+    std::vector <int> vec;
+    for(int j = 1; j <= k - qry.span; ++j){
+        vec.push_back(j);
     }
-    if (dist[qry.to][channel] == INF) {
-        for (int j = 1; j <= k - qry.span; ++j) {
-            std::deque<std::pair<int, int>> queue;
-            queue.emplace_back(qry.from, j);
-            dist[qry.from][j] = 0;
-            while (!queue.empty()) {
-                auto [x, i] = queue.front();
-                queue.pop_front();
-                if (x == qry.to) {
-                    channel = i;
-                    break;
-                }
-                if(pop_vis[x][i]) continue;
-                pop_vis[x][i] = true;
-                const uint64_t mask = (1ull << (i + qry.span + 1)) - (1ull << i);
-                for (auto [y, info] : G[x]) {
-                    if (!info->empty(mask)) {
-                        continue;
-                    }
-                    if (dist[y][i] > dist[x][i] + 1) {
-                        dist[y][i] = dist[x][i] + 1;
-                        queue.emplace_back(y, i);
-                        father[y][i] = {x, i, info->index};
-                    }
-                }
-            }
-            if (dist[qry.to][channel] != INF) {
+    random_shuffle(vec.begin(), vec.end());
+    int channel = 1;
+    for (auto j : vec) {
+        std::deque<std::pair<int, int>> queue;
+        queue.emplace_back(qry.from, j);
+        dist[qry.from][j] = 0;
+        while (!queue.empty()) {
+            auto [x, i] = queue.front();
+            queue.pop_front();
+            if (x == qry.to) {
+                channel = i;
                 break;
             }
+            if(pop_vis[x][i]) continue;
+            pop_vis[x][i] = true;
+            const uint64_t mask = (1ull << (i + qry.span + 1)) - (1ull << i);
+            for (auto [y, info] : G[x]) {
+                if (!info->empty(mask)) {
+                    continue;
+                }
+                if (dist[y][i] > dist[x][i] + 1) {
+                    dist[y][i] = dist[x][i] + 1;
+                    queue.emplace_back(y, i);
+                    father[y][i] = {x, i, info->index};
+                }
+            }
+        }
+        if (dist[qry.to][channel] != INF) {
+            break;
         }
     }
     if (dist[qry.to][channel] == INF) {
@@ -756,12 +730,11 @@ template <bool once=false, bool is_baseline=false> std::vector<int> solve(int e)
         std::vector<int> updated;
         updated.reserve(indices.size());
         for (auto i : indices) {
-            auto c = query[i].path.back().second;
             query[i].undo();
             ::iterations += 1;
             path_t new_path;
              if constexpr (is_baseline){
-                new_path = bfs(query[i], c);
+                new_path = bfs(query[i]);
             }else{
                 new_path = search::search(query[i]);
             }
