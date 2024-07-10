@@ -9,6 +9,7 @@
 #include <cstring>
 #include <unordered_set>
 #include <bitset>
+constexpr bool offline = true;
 constexpr int INF = 1 << 30;
 constexpr int k = 40;
 constexpr int MAXK = 44;
@@ -1010,7 +1011,7 @@ void generate() { //输出瓶颈断边场景的交互部分
 }
 int main() noexcept {
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("../release/testcase2.in", "r", stdin);
+    std::ignore = freopen("../release/testcase1.in", "r", stdin);
     std::ignore = freopen("../release/output.txt", "w", stdout);
 #endif
     testcase::run();
@@ -1047,9 +1048,11 @@ int main() noexcept {
             num_operations = T * maxfail;
         }
         std::vector<std::vector<int>> answer;
-        if (idx < pretests.size()) {
-            answer = solver::solve(pretests[idx]);
-            std::reverse(answer.begin(), answer.end());
+        if constexpr (offline) {
+            if (idx < pretests.size()) {
+                answer = solver::solve(pretests[idx]);
+                std::reverse(answer.begin(), answer.end());
+            }
         }
         for (;;) {
             int e;
@@ -1100,9 +1103,9 @@ int main() noexcept {
 #endif
     }
 #ifdef __SMZ_NATIVE_TEST
-    print("Score: ", (int)score);       //785784   8539617
+    print("Score: ", (int)score);       //811031   8575574
     print("Runtime: ", runtime());
-    print("Iterations: ", iterations);  //46989843  38715475
+    print("Iterations: ", iterations);  //41050795  35458762
 #endif
     return 0;
 }
