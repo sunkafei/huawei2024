@@ -152,15 +152,15 @@ struct query_t {
             channel = L;
         }
     }
-    void undo() {
+    template<bool update=false> void undo() {
         backup = std::move(path);
         path.clear();
-        undo(backup);
+        undo<true, update>(backup);
     }
-    void redo() {
+    template<bool update=false> void redo() {
         path = std::move(backup);
         backup.clear();
-        apply(path);
+        apply<true, update>(path);
     }
     void confirm(path_t&& new_path) {
         path = std::move(new_path);
@@ -410,7 +410,7 @@ namespace testcase {
         static int64_t id = 0;
         if (id) {
             for (int i = 1; i <= q; ++i) {
-                query[i].undo();
+                query[i].undo<true>();
             }
             for (int i = 1; i <= n; ++i) {
                 if (p[i] != ::p[i]) {
@@ -418,7 +418,7 @@ namespace testcase {
                 }
             }
             for (int i = 1; i <= m; ++i) {
-                if (edges[i].channel) {
+                if (edges[i].channel || edges[i].occupied.size()) {
                     abort();
                 }
             }
@@ -458,6 +458,47 @@ namespace testcase {
             }
             ::query[i].init(::query[i].path);
         }
+    }
+    void check() {
+        #ifdef __SMZ_RUNTIME_CHECK
+        for (int i = 1; i <= m; ++i) {
+            auto [x, y] = nodes[i];
+            if (::edges[i].first != x || ::edges[i].second != y || ::edges[i].index != i || ::edges[i].deleted) {
+                abort();
+            }
+            /*if (std::find(G[x].begin(), G[x].end(), std::make_pair(y, &::edges[i])) == G[x].end()) {
+                abort();
+            }
+            if (std::find(G[y].begin(), G[y].end(), std::make_pair(x, &::edges[i])) == G[y].end()) {
+                abort();
+            }*/
+        }
+        for (int i = 1; i <= business.size(); ++i) {
+            const auto& [s, t, _, L, R, V, E] = business[i - 1];
+            if (::query[i].from != s || ::query[i].to != t || ::query[i].l != L || ::query[i].r != R) {
+                abort();
+            }
+            if (::query[i].value != V || ::query[i].index != i || ::query[i].span != R - L || ::query[i].dead) {
+                abort();
+            }
+        }
+        for (int i = 1; i <= q; ++i) {
+            query[i].undo<true>();
+        }
+        for (int i = 1; i <= n; ++i) {
+            if (p[i] != ::p[i]) {
+                abort();
+            }
+        }
+        for (int i = 1; i <= m; ++i) {
+            if (edges[i].channel || edges[i].occupied.size()) {
+                abort();
+            }
+        }
+        for (int i = 1; i <= q; ++i) {
+            query[i].redo<true>();
+        }
+        #endif
     }
 }
 namespace search {
@@ -949,6 +990,9 @@ namespace solver {
         do {
             proc();
         } while (runtime() < time_limit);
+        #ifdef __SMZ_RUNTIME_CHECK
+        testcase::check();
+        #endif
         std::vector<std::vector<int>> ret(answer.size());
         for (int idx = 0; idx < answer.size(); ++idx) {
             for (auto iter = answer[idx].begin(); iter != answer[idx].end(); ++iter) {
