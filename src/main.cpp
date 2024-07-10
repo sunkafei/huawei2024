@@ -958,12 +958,12 @@ namespace solver {
                     query[i].replace(std::move(new_path));
                 }
                 else {
-                    query[-i].dead = true;
+                    query[i].dead = true;
                 }
             }
         }
         check_ret(ret);
-        return ret;    
+        return ret;
     }
 }
 void generate() { //输出瓶颈断边场景的交互部分
