@@ -164,12 +164,22 @@ struct query_t {
         apply<true, update>(path);
     }
     void confirm(path_t&& new_path) {
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (backup.empty()) {
+            abort();
+        }
+        #endif
         path = std::move(new_path);
         timestamp += 1;
         apply<true>(path);
         apply<false>(backup.back());
     }
     auto cancel() {
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (backup.empty()) {
+            abort();
+        }
+        #endif
         timestamp += 1;
         undo<true>(backup.back());
         undo<false>(path);
@@ -189,12 +199,22 @@ struct query_t {
         apply<true, true>(the_path);
     }
     void commit() {
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (backup.empty()) {
+            abort();
+        }
+        #endif
         timestamp += 1;
         undo<true, true>(backup.back());
         undo<false>(path);
         apply<true, true>(path);
     }
     auto rollback() {
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (backup.empty()) {
+            abort();
+        }
+        #endif
         undo<true, true>(path);
         apply<true, true>(backup.back());
         auto ret = std::move(path);
@@ -809,6 +829,9 @@ namespace solver {
             }
         }
         for (int i = 1; i <= n; ++i) if (p[i] < 0) {
+            abort();
+        }
+        for (int i = 1; i <= q; ++i) if (query[i].backup.size()) {
             abort();
         }
         #endif
