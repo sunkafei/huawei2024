@@ -627,6 +627,11 @@ namespace solver {
     int64_t visit[MAXQ];
     int64_t timestamp = 1;
     void cut(int e) {
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (e <= 0 || e > m) {
+            abort();
+        }
+        #endif
         int s = edges[e].first, t = edges[e].second;
         for (int i = 0; i < G[s].size(); ++i) {
             if (G[s][i].second->index == e) {
@@ -648,6 +653,11 @@ namespace solver {
         }
     }
     void resume(int e) {
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (e <= 0 || e > m) {
+            abort();
+        }
+        #endif
         int s = edges[e].first, t = edges[e].second;
         G[s].emplace_back(t, &edges[e]);
         G[t].emplace_back(s, &edges[e]);
@@ -733,7 +743,7 @@ namespace solver {
                 }
             }
         }
-        for (int i = 1; i <= q; ++i) if (!query[i].dead) {
+        for (int i = 1; i <= q; ++i) {
             std::unordered_set<int> S;
             for (auto [e, c] : query[i].path) {
                 S.insert(e);
@@ -857,11 +867,11 @@ namespace solver {
         search::preprocess(nodes); //todo
         cut(scene);
         int64_t best = std::numeric_limits<int64_t>::max();
-        std::vector<std::vector<std::pair<int, path_t>>> answer;
+        std::vector<std::vector<std::tuple<int, int, path_t>>> answer;
         auto proc = [&]() {
             timestamp += 1;
             int64_t loss = 0;
-            std::vector<std::vector<int>> updated(scene.size());
+            std::vector<std::vector<std::pair<int, int>>> updated(scene.size());
             for (int idx = 0; idx < scene.size(); ++idx) {
                 auto e = scene[idx];
                 auto deleted = get_deleted<false>(e);
@@ -872,45 +882,53 @@ namespace solver {
                     ::iterations += 1;
                     auto new_path = search::search(query[i]);
                     check_path(i, new_path);
+                    int flag = -1;
                     if (new_path.empty()) {
                         loss += query[i].value;
                         std::vector<int> tmp(scene.begin() + idx + 1, scene.end());
                         resume(tmp);
-                        new_path = search::search(query[i]);
+                        auto new_path2 = search::search(query[i]);
+                        check_path(i, new_path2);
+                        if (new_path2.size() < new_path.size()) {
+                            new_path = std::move(new_path2);
+                            flag = 0;
+                        }
                         cut(tmp);
+                    }
+                    else {
+                        flag = 1;
                     }
                     if (new_path.empty()) {
                         query[i].redo();
-                        updated[idx].push_back(-i);
                     }
                     else {
                         query[i].confirm(std::move(new_path));
-                        updated[idx].push_back(i);
                     }
+                    updated[idx].emplace_back(i, flag);
                     if (loss >= best) {
                         break;
                     }
                 }
-                for (auto i : updated[idx]) if (i > 0) {
+                for (auto [i, state] : updated[idx]) if (state >= 0) {
                     query[i].commit();
                 }
             }
-            std::vector<std::vector<std::pair<int, path_t>>> result(scene.size());
+            std::vector<std::vector<std::tuple<int, int, path_t>>> result(scene.size());
             for (int idx = (int)scene.size() - 1; idx >= 0; --idx) {
                 result[idx].reserve(updated[idx].size());
-                for (auto i : updated[idx]) {
-                    if (i > 0) {
+                for (auto [i, state] : updated[idx]) {
+                    if (state >= 0) {
                         auto new_path = query[i].rollback();
-                        result[idx].emplace_back(i, std::move(new_path));
+                        result[idx].emplace_back(i, state == 0, std::move(new_path));
                     }
                     else {
-                        result[idx].emplace_back(i, path_t{});
+                        result[idx].emplace_back(i, true, path_t{});
                     }
                 }
                 #ifdef __SMZ_RUNTIME_CHECK
                 std::vector<int> modified;
                 for (const auto& vec : result) {
-                    for (const auto& [i, _] : vec) if (i > 0) {
+                    for (const auto& [i, state, _] : vec) if (state >= 0) {
                         modified.push_back(i);
                     }
                 }
@@ -934,8 +952,8 @@ namespace solver {
         std::vector<std::vector<int>> ret(answer.size());
         for (int idx = 0; idx < answer.size(); ++idx) {
             for (auto iter = answer[idx].begin(); iter != answer[idx].end(); ++iter) {
-                auto [i, new_path] = std::move(*iter);
-                if (i > 0) {
+                auto [i, del, new_path] = std::move(*iter);
+                if (!del) {
                     ret[idx].push_back(i);
                     query[i].replace(std::move(new_path));
                 }
@@ -1011,7 +1029,7 @@ void generate() { //输出瓶颈断边场景的交互部分
 }
 int main() noexcept {
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("../release/testcase1.in", "r", stdin);
+    std::ignore = freopen("../release/testcase2.in", "r", stdin);
     std::ignore = freopen("../release/output.txt", "w", stdout);
 #endif
     testcase::run();
