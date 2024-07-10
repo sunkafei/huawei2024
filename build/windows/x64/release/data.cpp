@@ -85,9 +85,9 @@ bool get_path(int s,int t) {
     // cout << "get_path" <<s <<" "<<t<<endl;
 
     while(op < ed) {
-        int r = rand();
-        if (r % 2 == 0) sort(q + op, q + ed, cmp_1);
-        else sort(q + op, q + ed, cmp_2);
+        // int r = rand();
+        // if (r % 2 == 0) sort(q + op, q + ed, cmp_1);
+        // else sort(q + op, q + ed, cmp_2);
         auto tp = q[op];
         int x = tp.first;
         // cout << "op" << op <<" " << "ed" <<" " << ed << " " << x <<" "<<tp.second.first<<endl;
@@ -120,7 +120,7 @@ pair<int,int> get_rand_seg(pair<int,int> seg){
     int l = seg.first;
     int r = seg.second;
     int x[52] = {0};
-    for(int i = 0;i < 50;i++) x[i] = rand() % (r - l + 1);
+    for(int i = 0;i < 1;i++) x[i] = rand() % (r - l + 1);
     // return make_pair(min(x,min(y,z)),max(x,(max(y,z))));
     // return make_pair(min(x,y),max(x,y));
     return make_pair(l , l + *max_element(x,x + 50));
@@ -158,31 +158,136 @@ void get_output(tag &tp) {
     tp.s = tp.path.size();
     tp.l = seg.first;
     tp.r = seg.second;
-    tp.v = rand() % 10;
+    tp.v = rand() % 50;
+    return;
+}
+
+
+struct Point {
+    double x, y;
+    bool operator==(const Point& other) const {
+        return x == other.x && y == other.y;
+    }
+    bool operator <(const Point& other) const {
+        return x < other.x || x == other.x && y < other.y;
+    }
+};
+
+double distanceSquared(const Point& p1, const Point& p2) {
+    return (p1.x - p2.x) * (p1.x - p2.x) + (p1.y - p2.y) * (p1.y - p2.y);
+}
+
+bool areCollinear(const Point& p1, const Point& p2, const Point& p3) {
+    return std::fabs((p2.y - p1.y) * (p3.x - p2.x) - (p2.x - p1.x) * (p3.y - p2.y)) < std::numeric_limits<double>::epsilon();
+}
+
+bool isGabrielEdge(const Point& p1, const Point& p2, const Point& p3) {
+    double d12 = distanceSquared(p1, p2);
+    double d13 = distanceSquared(p1, p3);
+    double d23 = distanceSquared(p2, p3);
+    // cout << "isGabrielEdge" << d12 << " " << d13 <<" "<< d23 <<" " << areCollinear(p1, p2, p3)<<endl;
+    return d12 < (d13 + d23) && !areCollinear(p1, p2, p3);
+}
+
+std::vector<std::pair<int, int>> generateGabrielGraph(const std::vector<Point>& points) {
+    std::vector<std::pair<int, int>> edges;
+    for (int i = 0; i < points.size(); ++i) {
+        for (int j = i + 1; j < points.size(); ++j) {
+            bool isGabriel = true;
+            for (int k = 0; k < points.size(); ++k) {
+                if (k != i && k != j && !isGabrielEdge(points[i], points[j], points[k])) {
+                    isGabriel = false;
+                    break;
+                }
+            }
+            if (isGabriel) {
+                edges.emplace_back(i, j);
+            }
+        }
+    }
+    return edges;
+}
+
+bool isDuplicate(const Point& a, const Point& b, double tolerance = 1e-6) {
+    return std::fabs(a.x - b.x) < tolerance && std::fabs(a.y - b.y) < tolerance;
+}
+
+
+Point generateRandomPoint() {
+    return {static_cast<double>(std::rand()) / RAND_MAX, 
+            static_cast<double>(std::rand()) / RAND_MAX};
+}
+
+void GabrielGraph() {
+    std::srand(static_cast<unsigned int>(std::time(nullptr)));
+
+    std::set<Point> points;
+
+    while (points.size() < n) {
+        Point newPoint = generateRandomPoint();
+        std::cout << points.size() << endl;
+        bool isDuplicateFound = false;
+        for (const auto& existingPoint : points) {
+            if (isDuplicate(newPoint, existingPoint)) {
+                isDuplicateFound = true;
+                break;
+            }
+        }
+        // std::cout << "isDuplicateFound " << isDuplicateFound << endl;
+        if (!isDuplicateFound) {
+            bool isCollinearFound = false;
+            for (const auto& otherPoint : points) {
+                for (const auto& anotherPoint : points) {
+                    if(otherPoint == anotherPoint) continue;
+                    if (areCollinear(newPoint, otherPoint, anotherPoint)) {
+                        isCollinearFound = true;
+                        break;
+                    }
+                }
+                if (isCollinearFound) break;
+            }
+            
+            if (!isCollinearFound) {
+                points.insert(newPoint);
+            }
+        }
+    }
+    // cout <<"points "<<points.size()<<endl;
+    auto ggedges = generateGabrielGraph(std::vector<Point>(points.begin(),points.end()));
+    edge.insert(edge.end(),ggedges.begin(),ggedges.end());    
     return;
 }
 int main(){
     srand(time(NULL));
     ofstream outfile;
-    string output_file;
-    cin >> output_file;
-    outfile.open(output_file);
+    string rule;
+    cin >> rule;
+    outfile.open("testcase2.in");
 
     for(int i = 0;i <= n;i++) p[i] = rand() % 10 + 10;
-    for(int i = 1;i < n;i++) {
-        edge.push_back(make_pair(i,i + 1));
+    if (rule != "gg") {//不生成gg图
+            for(int i = 1;i < n;i++) {
+            edge.push_back(make_pair(i,i + 1));
+        }
     }
-    for(int i = n;i <= m;i++) {
+    else {//尝试生成gg图
+        GabrielGraph();
+        // for(auto [x,y] : edge) {
+        //     cout << x <<" " << y << endl;
+        // }
+    }
+    cout << "edge.size()" << edge.size() << endl;
+    while(edge.size() < m) {
         int x = rand() % n + 1;
         int y = rand() % n + 1;
         while(y == x) y = rand() % n + 1;
         if(x > y) swap(x,y);
         if (find(edge.begin(),edge.end(),make_pair(x,y)) != edge.end()) {
-            i--;
             continue;
         }
         edge.push_back(make_pair(x,y));
     }
+    cout << "final edge.size()" << edge.size() << endl;
     random_shuffle(edge.begin(),edge.end());
     for(int i = 0;i < edge.size();i++) {
         if (rand() & 1) swap(edge[i].first,edge[i].second);
@@ -199,7 +304,7 @@ int main(){
 
     int J = 100;
     for(int i = 1;i <= J;i++) {
-        if(i % 500 == 0) cout << i << endl;
+        if(i % 10 == 0) cout << "edge:" << i << endl;
         tag tp;
         tp.src = rand() % n + 1;
         tp.snk = rand() % n + 1;
@@ -227,8 +332,8 @@ int main(){
     // for(int i = 0;i < edge.size();i++) {
     //     cout << i <<" " <<h[i]<<endl;
     // }
-    int t = 100;
-    outfile << 100 << endl;
+    int t = 50;
+    outfile << t << endl;
     
     double num[107] = {0};
     // for(int i = 1;i <= t;i++) num[i] = i;
@@ -236,7 +341,7 @@ int main(){
     double sum = accumulate(num + 1,num + t + 1 ,0);
 
     while(t) {
-        int x = round(num[t] * 6000 / sum);
+        int x = round(num[t] * 50 * t / sum);
         x = min(x,50);
         int kill[MAXM] = {0};
         for(int j = 1;j <= m;j++) kill[j] = j;
@@ -255,9 +360,10 @@ int main(){
     //     outfile << -1 << endl;
     //     t--;
     // }
+    outfile.close();
 
-    string command = "main <" + output_file;
-    cout << command;
+    string command = "main\n";
+    cout << "building data done.";
     system(command.c_str());
     return 0;
 }
