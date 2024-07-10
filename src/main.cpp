@@ -1,3 +1,4 @@
+// #define __SMZ_NATIVE_TEST
 #include <cstdint>
 #include <iostream>
 #include <cstdio>
@@ -614,7 +615,7 @@ namespace search {
     }
 }
 
-path_t bfs(const query_t& qry) {
+path_t bfs(const query_t& qry, int start_c=1) {
     static int dist[MAXN][MAXK];
     static int pop_vis[MAXN][MAXK];
     static std::tuple<int, int, int> father[MAXN][MAXK];
@@ -624,12 +625,15 @@ path_t bfs(const query_t& qry) {
             pop_vis[i][j] = false;
         }
     }
-    std::deque<std::pair<int, int>> queue;
-    for (int j = 1; j <= k - qry.span; ++j) {
-        queue.emplace_back(qry.from, j);
-        dist[qry.from][j] = 0;
-    }
+    // std::deque<std::pair<int, int>> queue;
+    // for (int j = 1; j <= k - qry.span; ++j) {
+    //     queue.emplace_back(qry.from, j);
+    //     dist[qry.from][j] = 0;
+    // }
     int channel = 1;
+    std::deque<std::pair<int, int>> queue;
+    queue.emplace_back(qry.from, start_c);
+    dist[qry.from][start_c] = 0;
     while (!queue.empty()) {
         auto [x, i] = queue.front();
         queue.pop_front();
@@ -648,6 +652,37 @@ path_t bfs(const query_t& qry) {
                 dist[y][i] = dist[x][i] + 1;
                 queue.emplace_back(y, i);
                 father[y][i] = {x, i, info->index};
+            }
+        }
+    }
+    if (dist[qry.to][channel] == INF) {
+        for (int j = 1; j <= k - qry.span; ++j) {
+            std::deque<std::pair<int, int>> queue;
+            queue.emplace_back(qry.from, j);
+            dist[qry.from][j] = 0;
+            while (!queue.empty()) {
+                auto [x, i] = queue.front();
+                queue.pop_front();
+                if (x == qry.to) {
+                    channel = i;
+                    break;
+                }
+                if(pop_vis[x][i]) continue;
+                pop_vis[x][i] = true;
+                const uint64_t mask = (1ull << (i + qry.span + 1)) - (1ull << i);
+                for (auto [y, info] : G[x]) {
+                    if (!info->empty(mask)) {
+                        continue;
+                    }
+                    if (dist[y][i] > dist[x][i] + 1) {
+                        dist[y][i] = dist[x][i] + 1;
+                        queue.emplace_back(y, i);
+                        father[y][i] = {x, i, info->index};
+                    }
+                }
+            }
+            if (dist[qry.to][channel] != INF) {
+                break;
             }
         }
     }
@@ -700,11 +735,18 @@ template <bool once=false, bool is_baseline=false> std::vector<int> solve(int e)
         return query[i].dead;
     });
     deleted.erase(iter, deleted.end());
-    std::sort(deleted.begin(), deleted.end(), [](int x, int y) {
-        if (query[x].value != query[y].value)
-            return query[x].value > query[y].value;
-        return query[x].index > query[y].index;
-    });
+    if constexpr (is_baseline){
+        std::sort(deleted.begin(), deleted.end(), [](int x, int y) {
+            return query[x].value < query[y].value;
+        });
+    }else{
+        std::sort(deleted.begin(), deleted.end(), [](int x, int y) {
+            if (query[x].value != query[y].value)
+                return query[x].value > query[y].value;
+            return query[x].index > query[y].index;
+        });
+    }
+    
     search::preprocess(deleted);
     std::tuple<int64_t, int64_t> best{std::numeric_limits<int64_t>::max(), std::numeric_limits<int64_t>::max()};
     std::vector<std::pair<int, path_t>> answer;
@@ -714,11 +756,12 @@ template <bool once=false, bool is_baseline=false> std::vector<int> solve(int e)
         std::vector<int> updated;
         updated.reserve(indices.size());
         for (auto i : indices) {
+            auto c = query[i].path.back().second;
             query[i].undo();
             ::iterations += 1;
             path_t new_path;
              if constexpr (is_baseline){
-                new_path = bfs(query[i]);
+                new_path = bfs(query[i], c);
             }else{
                 new_path = search::search(query[i]);
             }
@@ -950,8 +993,8 @@ void generate() { //输出瓶颈断边场景的交互部分
 }
 int main() {
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("../release/testcase2.in", "r", stdin);
-    std::ignore = freopen("../release/output.txt", "w", stdout);
+    std::ignore = freopen("testcase2.in", "r", stdin);
+    std::ignore = freopen("output.txt", "w", stdout);
 #endif
     testcase::run();
 
@@ -961,12 +1004,12 @@ int main() {
     io::start_reading();
     int T = io::read_int();
     int idx = 0;
-    #ifdef __SMZ_NATIVE_TEST
-    T += pretests.size();
-    if (pretests.empty()) {
-        abort();
-    }
-    #endif
+    // #ifdef __SMZ_NATIVE_TEST
+    // T += pretests.size();
+    // if (pretests.empty()) {
+    //     abort();
+    // }
+    // #endif
     double score = 0;
     while (T) {
         testcase::start();
