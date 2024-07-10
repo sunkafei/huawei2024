@@ -185,6 +185,7 @@ struct query_t {
         path = std::move(new_path);
     }
     void init(const path_t& the_path) {
+        backup.clear();
         apply<true, true>(the_path);
     }
     void commit() {
@@ -681,10 +682,12 @@ namespace solver {
             abort();
         }
         #endif
+        int found = 0;
         int s = edges[e].first, t = edges[e].second;
         for (int i = 0; i < G[s].size(); ++i) {
             if (G[s][i].second->index == e) {
                 G[s].erase(G[s].begin() + i);
+                found += 1;
                 break;
             }
         }
@@ -692,9 +695,15 @@ namespace solver {
         for (int i = 0; i < G[s].size(); ++i) {
             if (G[s][i].second->index == e) {
                 G[s].erase(G[s].begin() + i);
+                found += 1;
                 break;
             }
         }
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (found != 2) {
+            abort();
+        }
+        #endif
     }
     void cut(const std::vector<int>& scene) {
         for (auto e : scene) {
@@ -964,6 +973,9 @@ namespace solver {
             std::sort(modified.begin(), modified.end());
             auto iter = std::unique(modified.begin(), modified.end());
             if (iter != modified.end()) {
+                abort();
+            }
+            for (int i = 1; i <= q; ++i) if (query[i].backup.size()) {
                 abort();
             }
             #endif
