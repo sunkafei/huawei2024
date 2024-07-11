@@ -894,6 +894,41 @@ template <bool once=false, bool is_baseline=false> std::vector<int> solve(int e)
 #endif
     return ret;
 }
+
+namespace union_set {
+    int fa[MAXN];
+    void init(){
+        for(int i = 1; i <= n; i++){
+            fa[i] = i;
+        }
+    }
+
+    int find(int x){
+        if(fa[x] != x) fa[x] = find(fa[x]);
+        return fa[x];
+    }
+
+    std::vector <int> gen(){
+        std::vector <int> indices(m);
+        std::vector <int> ret;
+        for(int i = 1; i <= m; i++){
+            indices[i - 1] = i;
+        }
+        shuffle(indices.begin(), indices.end(), engine);
+
+        init();
+        for(auto i : indices){
+            int x = edges[i].first, y = edges[i].second;
+            if(find(x) == find(y)){
+                ret.push_back(i);
+            }else{
+                fa[find(x)] = find(y);
+            }
+        }
+        return ret;
+    }
+}
+
 void generate() { //输出瓶颈断边场景的交互部分
     auto check = [](const auto& deleted) {
         auto jaccard = [](const auto& A, const auto& B) {
@@ -925,8 +960,8 @@ void generate() { //输出瓶颈断边场景的交互部分
     const int T1 = 50;
     io::write_int(T1);
     io::flush();
-    std::uniform_int_distribution<int> gen(1, m);
-    std::mt19937 mt(20140920);
+    // std::uniform_int_distribution<int> gen(1, m);
+    // std::mt19937 mt(20140920);
     testcase::start();
     long long total = 0;
     for (int j = 1; j <= q; ++j) {
@@ -934,18 +969,20 @@ void generate() { //输出瓶颈断边场景的交互部分
     }
     std::vector<std::pair <double, std::vector<int> > > cases;
     for (int i = 0; i < T1*2; ++i) {
-        int c = std::min(50, m);
+        int c = std::min(50, m - n + 1);
         std::vector<int> deleted;
         double delta;
         do {
+            auto vec = union_set::gen();
             deleted.clear();
-            std::unordered_set<int> visit;
+            // std::unordered_set<int> visit;
             for (int j = 0; j < c; ++j) {
-                int e = gen(mt);
-                while (visit.count(e)) {
-                    e = gen(mt);
-                }
-                visit.insert(e);
+                // int e = gen(mt);
+                // while (visit.count(e)) {
+                //     e = gen(mt);
+                // }
+                // visit.insert(e);
+                int e = vec[j];
                 deleted.push_back(e);
             }
             std::vector <double> score, score_baseline;
