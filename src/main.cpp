@@ -614,7 +614,7 @@ namespace search {
     }
 }
 
-path_t bfs(const query_t& qry) {
+path_t bfs(const query_t& qry, int start_c=1) {
     static int dist[MAXN][MAXK];
     static int pop_vis[MAXN][MAXK];
     static std::tuple<int, int, int> father[MAXN][MAXK];
@@ -624,12 +624,10 @@ path_t bfs(const query_t& qry) {
             pop_vis[i][j] = false;
         }
     }
-    std::deque<std::pair<int, int>> queue;
-    for (int j = 1; j <= k - qry.span; ++j) {
-        queue.emplace_back(qry.from, j);
-        dist[qry.from][j] = 0;
-    }
     int channel = 1;
+    std::deque<std::pair<int, int>> queue;
+    queue.emplace_back(qry.from, start_c);
+    dist[qry.from][start_c] = 0;
     while (!queue.empty()) {
         auto [x, i] = queue.front();
         queue.pop_front();
@@ -648,6 +646,42 @@ path_t bfs(const query_t& qry) {
                 dist[y][i] = dist[x][i] + 1;
                 queue.emplace_back(y, i);
                 father[y][i] = {x, i, info->index};
+            }
+        }
+    }
+    if (dist[qry.to][channel] == INF) {
+        std::vector <int> vec;
+        for(int j = 1; j <= k - qry.span; ++j){
+            vec.push_back(j);
+        }
+        shuffle(vec.begin(), vec.end(), engine);
+        for (auto j : vec) {
+            std::deque<std::pair<int, int>> queue;
+            queue.emplace_back(qry.from, j);
+            dist[qry.from][j] = 0;
+            while (!queue.empty()) {
+                auto [x, i] = queue.front();
+                queue.pop_front();
+                if (x == qry.to) {
+                    channel = i;
+                    break;
+                }
+                if(pop_vis[x][i]) continue;
+                pop_vis[x][i] = true;
+                const uint64_t mask = (1ull << (i + qry.span + 1)) - (1ull << i);
+                for (auto [y, info] : G[x]) {
+                    if (!info->empty(mask)) {
+                        continue;
+                    }
+                    if (dist[y][i] > dist[x][i] + 1) {
+                        dist[y][i] = dist[x][i] + 1;
+                        queue.emplace_back(y, i);
+                        father[y][i] = {x, i, info->index};
+                    }
+                }
+            }
+            if (dist[qry.to][channel] != INF) {
+                break;
             }
         }
     }
@@ -700,11 +734,18 @@ template <bool once=false, bool is_baseline=false> std::vector<int> solve(int e)
         return query[i].dead;
     });
     deleted.erase(iter, deleted.end());
-    std::sort(deleted.begin(), deleted.end(), [](int x, int y) {
-        if (query[x].value != query[y].value)
-            return query[x].value > query[y].value;
-        return query[x].index > query[y].index;
-    });
+    if constexpr (is_baseline){
+        std::sort(deleted.begin(), deleted.end(), [](int x, int y) {
+            return query[x].value < query[y].value;
+        });
+    }else{
+        std::sort(deleted.begin(), deleted.end(), [](int x, int y) {
+            if (query[x].value != query[y].value)
+                return query[x].value > query[y].value;
+            return query[x].index > query[y].index;
+        });
+    }
+    
     search::preprocess(deleted);
     std::tuple<int64_t, int64_t> best{std::numeric_limits<int64_t>::max(), std::numeric_limits<int64_t>::max()};
     std::vector<std::pair<int, path_t>> answer;
@@ -714,11 +755,12 @@ template <bool once=false, bool is_baseline=false> std::vector<int> solve(int e)
         std::vector<int> updated;
         updated.reserve(indices.size());
         for (auto i : indices) {
+            auto c = query[i].path.back().second;
             query[i].undo();
             ::iterations += 1;
             path_t new_path;
              if constexpr (is_baseline){
-                new_path = bfs(query[i]);
+                new_path = bfs(query[i], c);
             }else{
                 new_path = search::search(query[i]);
             }
@@ -852,6 +894,41 @@ template <bool once=false, bool is_baseline=false> std::vector<int> solve(int e)
 #endif
     return ret;
 }
+
+namespace union_set {
+    int fa[MAXN];
+    void init(){
+        for(int i = 1; i <= n; i++){
+            fa[i] = i;
+        }
+    }
+
+    int find(int x){
+        if(fa[x] != x) fa[x] = find(fa[x]);
+        return fa[x];
+    }
+
+    std::vector <int> gen(){
+        std::vector <int> indices(m);
+        std::vector <int> ret;
+        for(int i = 1; i <= m; i++){
+            indices[i - 1] = i;
+        }
+        shuffle(indices.begin(), indices.end(), engine);
+
+        init();
+        for(auto i : indices){
+            int x = edges[i].first, y = edges[i].second;
+            if(find(x) == find(y)){
+                ret.push_back(i);
+            }else{
+                fa[find(x)] = find(y);
+            }
+        }
+        return ret;
+    }
+}
+
 void generate() { //输出瓶颈断边场景的交互部分
     auto check = [](const auto& deleted) {
         auto jaccard = [](const auto& A, const auto& B) {
@@ -883,25 +960,29 @@ void generate() { //输出瓶颈断边场景的交互部分
     const int T1 = 50;
     io::write_int(T1);
     io::flush();
-    std::uniform_int_distribution<int> gen(1, m);
-    std::mt19937 mt(20140920);
+    // std::uniform_int_distribution<int> gen(1, m);
+    // std::mt19937 mt(20140920);
     testcase::start();
     long long total = 0;
     for (int j = 1; j <= q; ++j) {
         total += query[j].value;
     }
-    for (int i = 0; i < T1; ++i) {
-        int c = std::min(50, m);
+    std::vector<std::pair <double, std::vector<int> > > cases;
+    for (int i = 0; i < T1*2; ++i) {
+        int c = std::min(50, m - n + 1);
         std::vector<int> deleted;
+        double delta;
         do {
+            auto vec = union_set::gen();
             deleted.clear();
-            std::unordered_set<int> visit;
+            // std::unordered_set<int> visit;
             for (int j = 0; j < c; ++j) {
-                int e = gen(mt);
-                while (visit.count(e)) {
-                    e = gen(mt);
-                }
-                visit.insert(e);
+                // int e = gen(mt);
+                // while (visit.count(e)) {
+                //     e = gen(mt);
+                // }
+                // visit.insert(e);
+                int e = vec[j];
                 deleted.push_back(e);
             }
             std::vector <double> score, score_baseline;
@@ -925,7 +1006,7 @@ void generate() { //输出瓶颈断边场景的交互部分
             }
 
             int mx = 0;
-            double delta = score[0] - score_baseline[0];
+            delta = score[0] - score_baseline[0];
             for (int j = 0; j < c; ++j) {
                 auto d = score[j] - score_baseline[j];
                 if(d > delta){
@@ -935,6 +1016,15 @@ void generate() { //输出瓶颈断边场景的交互部分
             }
             deleted.resize(mx + 1);
         } while (deleted.size() == 1 || !check(deleted));
+        cases.push_back({delta, deleted});
+        pretests.push_back(std::move(deleted));
+    }
+
+    pretests.clear();
+    sort(cases.begin(), cases.end());
+    reverse(cases.begin(), cases.end());
+    cases.resize(T1);
+    for(auto [mx, deleted]: cases){
         io::start_writing();
         io::write_int(deleted.size());
         io::newline();
@@ -946,12 +1036,17 @@ void generate() { //输出瓶颈断边场景的交互部分
     }
     #ifdef __SMZ_NATIVE_TEST
     print("Data Generated.");
+    double sum = 0;
+    for(auto [mx, deleted]: cases){
+        sum += mx;
+    }
+    print("Score different: ", sum);
     #endif
 }
 int main() {
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("../release/testcase2.in", "r", stdin);
-    std::ignore = freopen("../release/output.txt", "w", stdout);
+    std::ignore = freopen("testcase2.in", "r", stdin);
+    std::ignore = freopen("output.txt", "w", stdout);
 #endif
     testcase::run();
 
@@ -961,12 +1056,12 @@ int main() {
     io::start_reading();
     int T = io::read_int();
     int idx = 0;
-    #ifdef __SMZ_NATIVE_TEST
-    T += pretests.size();
-    if (pretests.empty()) {
-        abort();
-    }
-    #endif
+    // #ifdef __SMZ_NATIVE_TEST
+    // T += pretests.size();
+    // if (pretests.empty()) {
+    //     abort();
+    // }
+    // #endif
     double score = 0;
     while (T) {
         testcase::start();
