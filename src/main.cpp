@@ -705,7 +705,7 @@ path_t bfs(const query_t& qry, int start_c=1) {
     return path;
 }
 
-template <bool once=false, bool is_baseline=false> std::vector<int> solve(int e) {
+template <bool once=true, bool is_baseline=false> std::vector<int> solve(int e) {
     int s = edges[e].first, t = edges[e].second;
     for (int i = 0; i < G[s].size(); ++i) {
         if (G[s][i].second->index == e) {
@@ -968,11 +968,18 @@ void generate() { //输出瓶颈断边场景的交互部分
         total += query[j].value;
     }
     std::vector<std::pair <double, std::vector<int> > > cases;
-    for (int i = 0; i < T1*2; ++i) {
+    for (int i = 0; true; ++i) {
         int c = std::min(50, m - n + 1);
         std::vector<int> deleted;
         double delta;
+        bool time_flag = false;
+        int failed_time = -1;
         do {
+            failed_time++;
+            if(runtime() >= 30 || failed_time > 50) {
+                time_flag = true;
+                break;
+            }
             auto vec = union_set::gen();
             deleted.clear();
             // std::unordered_set<int> visit;
@@ -1016,6 +1023,9 @@ void generate() { //输出瓶颈断边场景的交互部分
             }
             deleted.resize(mx + 1);
         } while (deleted.size() == 1 || !check(deleted));
+        if(time_flag){
+            break;
+        }
         cases.push_back({delta, deleted});
         pretests.push_back(std::move(deleted));
     }
