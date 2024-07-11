@@ -1,4 +1,3 @@
-// #define __SMZ_NATIVE_TEST
 #include <cstdint>
 #include <iostream>
 #include <cstdio>
@@ -933,9 +932,11 @@ void generate() { //输出瓶颈断边场景的交互部分
     for (int j = 1; j <= q; ++j) {
         total += query[j].value;
     }
-    for (int i = 0; i < T1; ++i) {
+    std::vector<std::pair <double, std::vector<int> > > cases;
+    for (int i = 0; i < T1*2; ++i) {
         int c = std::min(50, m);
         std::vector<int> deleted;
+        double delta;
         do {
             deleted.clear();
             std::unordered_set<int> visit;
@@ -968,7 +969,7 @@ void generate() { //输出瓶颈断边场景的交互部分
             }
 
             int mx = 0;
-            double delta = score[0] - score_baseline[0];
+            delta = score[0] - score_baseline[0];
             for (int j = 0; j < c; ++j) {
                 auto d = score[j] - score_baseline[j];
                 if(d > delta){
@@ -978,6 +979,15 @@ void generate() { //输出瓶颈断边场景的交互部分
             }
             deleted.resize(mx + 1);
         } while (deleted.size() == 1 || !check(deleted));
+        cases.push_back({delta, deleted});
+        pretests.push_back(std::move(deleted));
+    }
+
+    pretests.clear();
+    sort(cases.begin(), cases.end());
+    reverse(cases.begin(), cases.end());
+    cases.resize(T1);
+    for(auto [mx, deleted]: cases){
         io::start_writing();
         io::write_int(deleted.size());
         io::newline();
@@ -989,6 +999,11 @@ void generate() { //输出瓶颈断边场景的交互部分
     }
     #ifdef __SMZ_NATIVE_TEST
     print("Data Generated.");
+    double sum = 0;
+    for(auto [mx, deleted]: cases){
+        sum += mx;
+    }
+    print("Score different: ", sum);
     #endif
 }
 int main() {
