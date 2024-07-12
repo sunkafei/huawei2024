@@ -21,6 +21,7 @@ int64_t iterations = 0;
 int num_operations = INF;
 int n, m, q, p[MAXN];
 using path_t = std::vector<std::pair<int, int>>;
+using answer_t = std::vector<std::pair<int, path_t>>;
 struct edge_t {
     uint64_t channel;
     std::vector<int> occupied;
@@ -189,10 +190,10 @@ struct query_t {
         backup.pop_back();
         return ret;
     }
-    void replace(path_t&& new_path) {
+    void replace(const path_t& new_path) {
         undo<true, true>(path);
         apply<true, true>(new_path);
-        path = std::move(new_path);
+        path = new_path;
     }
     void init(const path_t& the_path) {
         backup.clear();
@@ -745,6 +746,12 @@ namespace search {
     }
 }
 namespace solver {
+    void filter(answer_t& answer) {
+        auto iter = std::remove_if(answer.begin(), answer.end(), [](const auto& pr) {
+            return pr.second.empty();
+        });
+        answer.erase(iter, answer.end());
+    }
     void cut(int e) {
         #ifdef __SMZ_RUNTIME_CHECK
         if (e <= 0 || e > m) {
@@ -854,15 +861,8 @@ namespace solver {
         }
         #endif
     }
-    template<typename T> void check_ret(const T& ret) {
+    void check_state() {
         #ifdef __SMZ_RUNTIME_CHECK
-        if constexpr (std::is_same_v<decltype(ret), std::vector<int>>) {
-            for (auto i : ret) {
-                if (query[i].dead) {
-                    abort();
-                }
-            }
-        }
         for (int i = 1; i <= q; ++i) {
             std::unordered_set<int> S;
             for (auto [e, c] : query[i].path) {
@@ -885,7 +885,7 @@ namespace solver {
         }
         #endif
     }
-    std::vector<int> solve(int e) {
+    answer_t solve(int e) {
         cut(e);
         auto deleted = get_deleted(e);
         std::vector<int> nodes;
@@ -897,7 +897,7 @@ namespace solver {
         nodes.erase(iter, nodes.end());
         search::preprocess(nodes);
         std::tuple<int64_t, int64_t> best{std::numeric_limits<int64_t>::max(), std::numeric_limits<int64_t>::max()};
-        std::vector<std::pair<int, path_t>> answer;
+        answer_t answer;
         std::vector<int> order;
         auto proc = [&](const std::vector<int>& indices) {
             int64_t loss = 0, length = 0;
@@ -922,7 +922,7 @@ namespace solver {
                     break;
                 }
             }
-            std::vector<std::pair<int, path_t>> result;
+            answer_t result;
             result.reserve(updated.size());
             for (auto i : updated) {
                 if (i > 0) {
@@ -930,7 +930,7 @@ namespace solver {
                     result.emplace_back(i, std::move(new_path));
                 }
                 else {
-                    result.emplace_back(i, path_t{});
+                    result.emplace_back(-i, path_t{});
                 }
             }
             std::tuple<int64_t, int64_t> now{loss, length};
@@ -967,28 +967,26 @@ namespace solver {
                 proc(indices);
             }
         }
-        std::vector<int> ret;
-        for (auto iter = answer.begin(); iter != answer.end(); ++iter) {
-            auto [i, new_path] = std::move(*iter);
-            if (i > 0) {
-                ret.push_back(i);
-                query[i].replace(std::move(new_path));
+        for (const auto& [i, new_path] : answer) {
+            if (new_path.size()) {
+                query[i].replace(new_path);
             }
             else {
-                query[-i].dead = true;
+                query[i].dead = true;
             }
         }
-        check_ret(ret);
-        return ret;
+        filter(answer);
+        check_state();
+        return answer;
     }
-    std::vector<std::vector<int>> solve(const std::vector<int>& scene) {
+    std::vector<answer_t> solve(const std::vector<int>& scene) {
         std::vector<int> nodes(n, 0);
         for (int i = 0; i < nodes.size(); ++i) {
             nodes[i] = i + 1;
         }
         search::preprocess(nodes); //todo
         int64_t best = std::numeric_limits<int64_t>::max();
-        std::vector<std::vector<std::pair<int, path_t>>> answer;
+        std::vector<answer_t> answer;
         auto proc = [&]() {
             int64_t loss = 0;
             std::vector<std::vector<int>> updated(scene.size());
@@ -1021,7 +1019,7 @@ namespace solver {
                 }
             }
             resume(scene);
-            std::vector<std::vector<std::pair<int, path_t>>> result(scene.size());
+            std::vector<answer_t> result(scene.size());
             for (int idx = (int)scene.size() - 1; idx >= 0; --idx) {
                 result[idx].reserve(updated[idx].size());
                 for (auto i : updated[idx]) {
@@ -1031,7 +1029,7 @@ namespace solver {
                     }
                     else {
                         query[-i].dead = false;
-                        result[idx].emplace_back(i, path_t{});
+                        result[idx].emplace_back(-i, path_t{});
                     }
                 }
             }
@@ -1064,21 +1062,19 @@ namespace solver {
         #ifdef __SMZ_RUNTIME_CHECK
         testcase::check();
         #endif
-        std::vector<std::vector<int>> ret(answer.size());
         for (int idx = 0; idx < answer.size(); ++idx) {
-            for (auto iter = answer[idx].begin(); iter != answer[idx].end(); ++iter) {
-                auto [i, new_path] = std::move(*iter);
-                if (i > 0) {
-                    ret[idx].push_back(i);
-                    query[i].replace(std::move(new_path));
+            for (const auto& [i, new_path] : answer[idx]) {
+                if (new_path.size()) {
+                    query[i].replace(new_path);
                 }
                 else {
-                    query[-i].dead = true;
+                    query[i].dead = true;
                 }
             }
+            filter(answer[idx]);
         }
-        check_ret(ret);
-        return ret;
+        check_state();
+        return answer;
     }
 }
 void generate() { //输出瓶颈断边场景的交互部分
@@ -1180,7 +1176,7 @@ int main() noexcept {
         if (num_operations > T * maxfail) {
             num_operations = T * maxfail;
         }
-        std::vector<std::vector<int>> answer;
+        std::vector<answer_t> answer;
         if constexpr (offline) {
             if (idx < pretests.size()) {
                 answer = solver::solve(pretests[idx]);
@@ -1200,22 +1196,22 @@ int main() noexcept {
             if (e == -1) {
                 break;
             }
-            std::vector<int> indices;
+            answer_t result;
             if (answer.size()) {
-                indices = answer.back();
+                result = answer.back();
                 answer.pop_back();
             }
             else {
-                indices = solver::solve(e);
+                result = solver::solve(e);
             }
             io::start_writing();
-            io::write_int((int)indices.size());
+            io::write_int((int)result.size());
             io::newline();
-            for (auto i : indices) {
+            for (const auto& [i, new_path] : result) {
                 io::write_int(i);
-                io::write_int((int)query[i].path.size());
+                io::write_int((int)new_path.size());
                 io::newline();
-                for (auto [e, c] : query[i].path) {
+                for (auto [e, c] : new_path) {
                     io::write_int(e);
                     io::write_int(c);
                     io::write_int(c + query[i].span);
