@@ -947,7 +947,7 @@ namespace union_set {
         if(fa[x] != x) fa[x] = find(fa[x]);
         return fa[x];
     }
-    std::vector <int> gen(){
+    std::vector<int> gen(){
         std::vector <int> indices(m);
         std::vector <int> ret;
         for(int i = 1; i <= m; i++){
@@ -961,6 +961,24 @@ namespace union_set {
             if(find(x) == find(y)){
                 ret.push_back(i);
             }else{
+                fa[find(x)] = find(y);
+            }
+        }
+        return ret;
+    }
+    std::vector<int> tree(){
+        std::vector <int> indices(m);
+        std::vector <int> ret;
+        for(int i = 1; i <= m; i++){
+            indices[i - 1] = i;
+        }
+        shuffle(indices.begin(), indices.end(), engine);
+
+        init();
+        for(auto i : indices){
+            int x = edges[i].first, y = edges[i].second;
+            if(find(x) != find(y)){
+                ret.push_back(i);
                 fa[find(x)] = find(y);
             }
         }
@@ -1015,6 +1033,11 @@ void generate() { //输出瓶颈断边场景的交互部分
             }
         }
         else {
+            timestamp += 1;
+            auto vec = union_set::tree();
+            for (auto i : vec) {
+                visit[i] = timestamp;
+            }
             index = gen(engine);
             deleted = pretests[index];
             for (int i = (int)deleted.size() - 1; i >= 1; --i) {
@@ -1028,15 +1051,16 @@ void generate() { //输出瓶颈断边场景的交互部分
                 return deleted[x].first < deleted[y].first;
             });
             int r = std::max(std::sqrt(deleted.size()), 1.0);
-            for (int i = 0; i < r; ++i) {
-                deleted[order[i]].second = -1;
+            for (int i = 0; i < deleted.size(); ++i) {
+                if (i < r || visit[deleted[order[i]].second] == timestamp) {
+                    deleted[order[i]].second = -1;
+                }
             }
             auto iter = std::remove_if(deleted.begin(), deleted.end(), [](auto pair) {
                 return pair.second == -1;
             });
             deleted.erase(iter, deleted.end());
             std::shuffle(indices.begin(), indices.end(), engine);
-            timestamp += 1;
             for (auto [v, i] : deleted) {
                 visit[i] = timestamp;
             }
@@ -1126,9 +1150,9 @@ void generate() { //输出瓶颈断边场景的交互部分
     print("Score different: ", sum);
     #endif
 }
-int main() { // 132197 241362 43098.5
+int main() { // 144753 243532 43082.9
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("testcase2.in", "r", stdin);
+    std::ignore = freopen("testcase1.in", "r", stdin);
     std::ignore = freopen("output.txt", "w", stdout);
 #endif
     testcase::run();
