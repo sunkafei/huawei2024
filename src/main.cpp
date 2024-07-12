@@ -16,6 +16,8 @@ constexpr int MAXN = 256;
 constexpr int MAXM = 1024;
 constexpr int MAXQ = 6000;
 constexpr int MAXTIME = 89;
+constexpr int MAXGENTIME = 30;
+constexpr int MAXGENT = 100000;
 int64_t iterations = 0;
 int num_operations = INF;
 int n, m, q, p[MAXN];
@@ -968,7 +970,7 @@ void generate() { //输出瓶颈断边场景的交互部分
         total += query[j].value;
     }
     std::vector<std::pair <double, std::vector<int> > > cases;
-    for (int i = 0; true; ++i) {
+    for (int i = 0; i <= MAXGENT; ++i) {
         int c = std::min(50, m - n + 1);
         std::vector<int> deleted;
         double delta;
@@ -976,7 +978,7 @@ void generate() { //输出瓶颈断边场景的交互部分
         int failed_time = -1;
         do {
             failed_time++;
-            if(runtime() >= 30 || failed_time > 50) {
+            if(runtime() >= MAXGENTIME || failed_time > 50) {
                 time_flag = true;
                 break;
             }
