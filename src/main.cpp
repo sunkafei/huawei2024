@@ -532,7 +532,7 @@ namespace search {
             }
         }
     }
-    inline path_t search(const query_t& qry) noexcept {
+    path_t astar(const query_t& qry) noexcept {
         if (baseline[qry.to][qry.from] == INF) {
             return {};
         }
@@ -666,96 +666,85 @@ namespace search {
         std::reverse(path.begin(), path.end());
         return path;
     }
-}
-path_t bfs(const query_t& qry, int start_c=1) {
-    static int dist[MAXN][MAXK];
-    static int pop_vis[MAXN][MAXK];
-    static std::tuple<int, int, int> father[MAXN][MAXK];
-    for (int i = 1; i <= n; ++i) {
-        for (int j = 1; j <= k; ++j) {
-            dist[i][j] = INF;
-            pop_vis[i][j] = false;
-        }
-    }
-    int channel = 1;
-    std::deque<std::pair<int, int>> queue;
-    queue.emplace_back(qry.from, start_c);
-    dist[qry.from][start_c] = 0;
-    while (!queue.empty()) {
-        auto [x, i] = queue.front();
-        queue.pop_front();
-        if (x == qry.to) {
-            channel = i;
-            break;
-        }
-        if(pop_vis[x][i]) continue;
-        pop_vis[x][i] = true;
-        const uint64_t mask = (1ull << (i + qry.span + 1)) - (1ull << i);
-        for (auto [y, info] : G[x]) {
-            if (!info->empty(mask)) {
-                continue;
-            }
-            if (dist[y][i] > dist[x][i] + 1) {
-                dist[y][i] = dist[x][i] + 1;
-                queue.emplace_back(y, i);
-                father[y][i] = {x, i, info->index};
-            }
-        }
-    }
-    if (dist[qry.to][channel] == INF) {
-        std::vector <int> vec;
-        for(int j = 1; j <= k - qry.span; ++j){
-            vec.push_back(j);
-        }
-        shuffle(vec.begin(), vec.end(), engine);
-        for (auto j : vec) {
-            std::deque<std::pair<int, int>> queue;
-            queue.emplace_back(qry.from, j);
-            dist[qry.from][j] = 0;
-            while (!queue.empty()) {
-                auto [x, i] = queue.front();
-                queue.pop_front();
-                if (x == qry.to) {
-                    channel = i;
-                    break;
-                }
-                if(pop_vis[x][i]) continue;
-                pop_vis[x][i] = true;
-                const uint64_t mask = (1ull << (i + qry.span + 1)) - (1ull << i);
-                for (auto [y, info] : G[x]) {
-                    if (!info->empty(mask)) {
-                        continue;
-                    }
-                    if (dist[y][i] > dist[x][i] + 1) {
-                        dist[y][i] = dist[x][i] + 1;
-                        queue.emplace_back(y, i);
-                        father[y][i] = {x, i, info->index};
-                    }
-                }
-            }
-            if (dist[qry.to][channel] != INF) {
+    path_t bfs(const query_t& qry, int start_c=1) {
+        timestamp += 2;
+        int channel = 1;
+        static queue_t<std::pair<int, int>, MAXN * MAXK * 2> queue; queue.clear();
+        queue.emplace(qry.from, start_c);
+        visit[qry.from][start_c] = timestamp;
+        while (!queue.empty()) {
+            auto [x, i] = queue.front();
+            queue.pop();
+            if (x == qry.to) {
+                channel = i;
                 break;
             }
+            const uint64_t mask = (1ull << (i + qry.span + 1)) - (1ull << i);
+            for (auto [y, info] : G[x]) {
+                if (!info->empty(mask)) {
+                    continue;
+                }
+                if (visit[y][i] != timestamp) {
+                    visit[y][i] = timestamp;
+                    queue.emplace(y, i);
+                    father[y][i] = {x, i, info->index};
+                }
+            }
         }
-    }
-    if (dist[qry.to][channel] == INF) {
-        return {};
-    }
-    path_t path;
-    int node = qry.to;
-    while (node != qry.from) {
-        auto [prev_node, prev_channel, e] = father[node][channel];
-        path.emplace_back(e, channel);
-        node = prev_node;
-        channel = prev_channel;
-        #ifdef __SMZ_RUNTIME_CHECK
-        if (node <= 0 || p[node] < -1 || node > n || channel <= 0 || channel > k) {
-            abort();
+        if (visit[qry.to][channel] != timestamp) {
+            std::vector<int> vec;
+            vec.reserve(k - qry.span);
+            for(int j = 1; j <= k - qry.span; ++j) if (j != start_c) {
+                vec.push_back(j);
+            }
+            shuffle(vec.begin(), vec.end(), engine);
+            for (auto j : vec) {
+                std::deque<std::pair<int, int>> queue;
+                queue.emplace_back(qry.from, j);
+                visit[qry.from][j] = timestamp;
+                while (!queue.empty()) {
+                    auto [x, i] = queue.front();
+                    queue.pop_front();
+                    if (x == qry.to) {
+                        channel = i;
+                        break;
+                    }
+                    const uint64_t mask = (1ull << (i + qry.span + 1)) - (1ull << i);
+                    for (auto [y, info] : G[x]) {
+                        if (!info->empty(mask)) {
+                            continue;
+                        }
+                        if (visit[y][i] != timestamp) {
+                            visit[y][i] = timestamp;
+                            queue.emplace_back(y, i);
+                            father[y][i] = {x, i, info->index};
+                        }
+                    }
+                }
+                if (visit[qry.to][channel] == timestamp) {
+                    break;
+                }
+            }
         }
-        #endif
+        if (visit[qry.to][channel] != timestamp) {
+            return {};
+        }
+        path_t path;
+        int node = qry.to;
+        while (node != qry.from) {
+            auto [prev_node, prev_channel, e] = father[node][channel];
+            path.emplace_back(e, channel);
+            node = prev_node;
+            channel = prev_channel;
+            #ifdef __SMZ_RUNTIME_CHECK
+            if (node <= 0 || p[node] < -1 || node > n || channel <= 0 || channel > k) {
+                abort();
+            }
+            #endif
+        }
+        std::reverse(path.begin(), path.end());
+        return path;
     }
-    std::reverse(path.begin(), path.end());
-    return path;
 }
 template<bool once=true, bool is_baseline=false> std::vector<int> solve(int e) {
     int s = edges[e].first, t = edges[e].second;
@@ -786,19 +775,19 @@ template<bool once=true, bool is_baseline=false> std::vector<int> solve(int e) {
         return query[i].dead;
     });
     deleted.erase(iter, deleted.end());
-    if constexpr (is_baseline){
+    if constexpr (is_baseline) {
         std::sort(deleted.begin(), deleted.end(), [](int x, int y) {
             return query[x].value < query[y].value;
         });
-    }else{
+    }
+    else {
         std::sort(deleted.begin(), deleted.end(), [](int x, int y) {
             if (query[x].value != query[y].value)
                 return query[x].value > query[y].value;
             return query[x].index > query[y].index;
         });
+        search::preprocess(deleted);
     }
-    
-    search::preprocess(deleted);
     std::tuple<int64_t, int64_t> best{std::numeric_limits<int64_t>::max(), std::numeric_limits<int64_t>::max()};
     std::vector<std::pair<int, path_t>> answer;
     std::vector<int> order;
@@ -811,10 +800,10 @@ template<bool once=true, bool is_baseline=false> std::vector<int> solve(int e) {
             query[i].undo();
             ::iterations += 1;
             path_t new_path;
-             if constexpr (is_baseline){
-                new_path = bfs(query[i], c);
+            if constexpr (is_baseline) {
+                new_path = search::bfs(query[i], c);
             }else{
-                new_path = search::search(query[i]);
+                new_path = search::astar(query[i]);
             }
             
 #ifdef __SMZ_RUNTIME_CHECK
@@ -1109,9 +1098,9 @@ void generate() { //输出瓶颈断边场景的交互部分
     print("Score different: ", sum);
     #endif
 }
-int main() { // 129776 237915 41935.3
+int main() { // 132197 241362 42379
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("testcase1.in", "r", stdin);
+    std::ignore = freopen("testcase2.in", "r", stdin);
     std::ignore = freopen("output.txt", "w", stdout);
 #endif
     testcase::run();
