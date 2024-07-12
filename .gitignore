@@ -10,3 +10,4 @@
 /build/**/main.pdb
 .DS_Store
 .vscode
+*.bak
