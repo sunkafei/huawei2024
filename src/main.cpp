@@ -1100,9 +1100,9 @@ void generate() { //输出瓶颈断边场景的交互部分
     print("Score different: ", sum);
     #endif
 }
-int main() {
+int main() { // 114709 230255 41472.5
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("testcase2.in", "r", stdin);
+    std::ignore = freopen("testcase1.in", "r", stdin);
     std::ignore = freopen("output.txt", "w", stdout);
 #endif
     testcase::run();
@@ -1178,9 +1178,9 @@ int main() {
 #endif
     }
 #ifdef __SMZ_NATIVE_TEST
-    print("Score: ", (int)score);       //785784   8539617
+    print("Score: ", (int)score);
     print("Runtime: ", runtime());
-    print("Iterations: ", iterations);  //46989843  38715475
+    print("Iterations: ", iterations);
 #endif
     return 0;
 }
