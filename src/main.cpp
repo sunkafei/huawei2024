@@ -9,6 +9,7 @@
 #include <cstring>
 #include <unordered_set>
 #include <bitset>
+#include <cmath>
 constexpr int INF = 1 << 30;
 constexpr int k = 40;
 constexpr int MAXK = 44;
@@ -17,7 +18,6 @@ constexpr int MAXM = 1024;
 constexpr int MAXQ = 6000;
 constexpr int MAXTIME = 89;
 constexpr int MAXGENTIME = 30;
-constexpr int MAXGENT = 100000;
 constexpr int MAXT1 = 50;
 constexpr int MAXC = 50;
 int64_t iterations = 0;
@@ -191,7 +191,7 @@ struct query_t {
 } query[MAXQ];
 std::mt19937 engine;
 std::vector<std::pair<int, edge_t*>> G[MAXN];
-std::vector<std::pair<double, std::vector<int>>> pretests;
+std::vector<std::vector<std::pair<double, int>>> pretests;
 const auto start_time = std::chrono::steady_clock::now();
 template<typename... T> void print(const T&... sth) {
 #ifdef __SMZ_NATIVE_TEST
@@ -968,16 +968,16 @@ namespace union_set {
     }
 }
 void generate() { //输出瓶颈断边场景的交互部分
-    auto check = [](const auto& deleted) {
+    static int64_t visit[MAXM];
+    static int64_t timestamp = 1;
+    auto check = [](const auto& deleted, int ignore) {
         auto jaccard = [](const auto& A, const auto& B) {
-            static int64_t timestamp = 1;
-            static int64_t visit[MAXM];
             double x = 0, y = A.size();
             timestamp += 1;
-            for (auto v : A) {
+            for (auto [_, v] : A) {
                 visit[v] = timestamp;
             }
-            for (auto v : B) {
+            for (auto [_, v] : B) {
                 if (visit[v] == timestamp) {
                     x += 1;
                 }
@@ -987,8 +987,8 @@ void generate() { //输出瓶颈断边场景的交互部分
             }
             return x / y;
         };
-        for (const auto& [_, pre] : pretests) {
-            if (jaccard(pre, deleted) > 0.6) {
+        for (int i = 0; i < pretests.size(); ++i) if (i != ignore) {
+            if (jaccard(pretests[i], deleted) > 0.6) {
                 return false;
             }
         }
@@ -999,84 +999,112 @@ void generate() { //输出瓶颈断边场景的交互部分
     for (int j = 1; j <= q; ++j) {
         total += query[j].value;
     }
-    for (int i = 0; i <= MAXGENT; ++i) {
-        int c = std::min(50, m - n + 1);
-        std::vector<int> deleted;
-        double delta;
-        bool time_flag = false;
-        int failed_time = -1;
-        do {
-            failed_time++;
-            if(runtime() >= MAXGENTIME || failed_time > 50) {
-                time_flag = true;
-                break;
-            }
-            auto vec = union_set::gen();
-            deleted.clear();
-            // std::unordered_set<int> visit;
-            for (int j = 0; j < c; ++j) {
-                // int e = gen(mt);
-                // while (visit.count(e)) {
-                //     e = gen(mt);
-                // }
-                // visit.insert(e);
-                int e = vec[j];
-                deleted.push_back(e);
-            }
-            std::vector <double> score, score_baseline;
-            testcase::start();
-            for(auto e : deleted){
-                solve<true, false>(e);
-                double rest = 0;
-                for (int j = 1; j <= q; ++j) if (!query[j].dead) {
-                    rest += query[j].value;
-                }
-                score.push_back(rest * 10000.0 / total);
-            }
-            testcase::start();
-            for(auto e : deleted){
-                solve<true, true>(e);
-                double rest = 0;
-                for (int j = 1; j <= q; ++j) if (!query[j].dead) {
-                    rest += query[j].value;
-                }
-                score_baseline.push_back(rest * 10000.0 / total);
-            }
-
-            int mx = 0;
-            delta = score[0] - score_baseline[0];
-            for (int j = 0; j < c; ++j) {
-                auto d = score[j] - score_baseline[j];
-                if(d > delta){
-                    delta = d;
-                    mx = j;
-                }
-            }
-            deleted.resize(mx + 1);
-        } while (deleted.size() == 1 || !check(deleted));
-        if (time_flag) {
-            break;
-        }
+    std::uniform_int_distribution<int> gen(0, MAXT1 - 1);
+    std::vector<int> indices;
+    for (int i = 1; i <= m; ++i) {
+        indices.push_back(i);
+    }
+    while (runtime() < MAXGENTIME) {
+        std::vector<std::pair<double, int>> deleted;
+        int index = -1;
         if (pretests.size() < MAXT1) {
-            pretests.push_back({delta, deleted});
+            auto vec = union_set::gen();
+            deleted.resize(vec.size());
+            for (int j = 0; j < deleted.size(); ++j) {
+                deleted[j].second = vec[j];
+            }
         }
         else {
-            auto iter = std::min_element(pretests.begin(), pretests.end(), [](const auto& x, const auto& y) {
-                return x.first < y.first;
-            });
-            if (iter->first < delta) {
-                *iter = {delta, deleted};
+            index = gen(engine);
+            deleted = pretests[index];
+            for (int i = (int)deleted.size() - 1; i >= 1; --i) {
+                deleted[i].first = deleted[i].first - deleted[i - 1].first;
             }
+            std::vector<int> order(deleted.size());
+            for (int i = 0; i < deleted.size(); ++i) {
+                order[i] = i;
+            }
+            std::sort(order.begin(), order.end(), [&](int x, int y) {
+                return deleted[x].first < deleted[y].first;
+            });
+            int r = std::max(std::sqrt(deleted.size()), 1.0);
+            for (int i = 0; i < r; ++i) {
+                deleted[order[i]].second = -1;
+            }
+            auto iter = std::remove_if(deleted.begin(), deleted.end(), [](auto pair) {
+                return pair.second == -1;
+            });
+            deleted.erase(iter, deleted.end());
+            std::shuffle(indices.begin(), indices.end(), engine);
+            timestamp += 1;
+            for (auto [v, i] : deleted) {
+                visit[i] = timestamp;
+            }
+            for (auto i : indices) if (visit[i] != timestamp) {
+                deleted.emplace_back(0, i);
+                if (deleted.size() >= MAXC) {
+                    break;
+                }
+            }
+            std::bernoulli_distribution bernoulli(1.0 / r);
+            std::reverse(deleted.begin(), deleted.end());
+            for (int i = 1; i < deleted.size(); ++i) if (bernoulli(engine)) {
+                int j = std::rand() % i;
+                std::swap(deleted[i], deleted[j]);
+            }
+            std::reverse(deleted.begin(), deleted.end());
+        }
+        if (deleted.size() > MAXC) {
+            deleted.resize(MAXC);
+        }
+        testcase::start();
+        for (int j = 0; j < deleted.size(); ++j) {
+            int e = deleted[j].second;
+            solve<true, false>(e);
+            double rest = 0;
+            for (int j = 1; j <= q; ++j) if (!query[j].dead) {
+                rest += query[j].value;
+            }
+            deleted[j].first = rest * 10000.0 / total;
+        }
+        testcase::start();
+        for (int j = 0; j < deleted.size(); ++j) {
+            int e = deleted[j].second;
+            solve<true, true>(e);
+            double rest = 0;
+            for (int j = 1; j <= q; ++j) if (!query[j].dead) {
+                rest += query[j].value;
+            }
+            deleted[j].first -= rest * 10000.0 / total;
+        }
+        int mx = 0;
+        int delta = deleted[0].first;
+        for (int j = 0; j < deleted.size(); ++j) {
+            auto d = deleted[j].first;
+            if(d > delta){
+                delta = d;
+                mx = j;
+            }
+        }
+        deleted.resize(mx + 1);
+        if (deleted.size() == 1 || !check(deleted, index)) {
+            continue;
+        }
+        if (pretests.size() < MAXT1) {
+            pretests.push_back(deleted);
+        }
+        else if (pretests[index].back().first < deleted.back().first) {
+            pretests[index] = deleted;
         }
     }
     io::start_writing();
     io::write_int(pretests.size());
     io::flush();
-    for(auto [delta, deleted] : pretests){
+    for(const auto& deleted : pretests){
         io::start_writing();
         io::write_int(deleted.size());
         io::newline();
-        for (auto e : deleted) {
+        for (auto [_, e] : deleted) {
             io::write_int(e);
         }
         io::flush();
@@ -1085,20 +1113,20 @@ void generate() { //输出瓶颈断边场景的交互部分
     if (pretests.size() > MAXT1) {
         abort();
     }
-    for (const auto& [_, deleted] : pretests) {
+    for (const auto& deleted : pretests) {
         if (deleted.size() > MAXC) {
             abort();
         }
     }
     print("Data Generated.");
     double sum = 0;
-    for (const auto& [mx, deleted] : pretests){
-        sum += mx;
+    for (const auto& deleted : pretests){
+        sum += deleted.back().first;
     }
     print("Score different: ", sum);
     #endif
 }
-int main() { // 132197 241362 42379
+int main() { // 132197 241362 43098.5
 #ifdef __SMZ_NATIVE_TEST
     std::ignore = freopen("testcase2.in", "r", stdin);
     std::ignore = freopen("output.txt", "w", stdout);
@@ -1118,15 +1146,15 @@ int main() { // 132197 241362 42379
     double score = 0;
     while (T) {
         testcase::start();
-        std::vector<int> data;
+        std::vector<std::pair<double, int>> data;
 #ifdef __SMZ_NATIVE_TEST
         uint64_t total = 0, rest = 0;
         for (int i = 1; i <= q; ++i) {
             total += query[i].value;
         }
         if (idx < pretests.size()) {
-            data = pretests[idx].second;
-            data.push_back(-1);
+            data = pretests[idx];
+            data.push_back({0.0, -1});
             std::reverse(data.begin(), data.end());
         }
 #endif
@@ -1137,7 +1165,7 @@ int main() { // 132197 241362 42379
         for (;;) {
             int e;
             if (data.size()) {
-                e = data.back();
+                e = data.back().second;
                 data.pop_back();
             }
             else {
