@@ -18,6 +18,8 @@ constexpr int MAXQ = 6000;
 constexpr int MAXTIME = 89;
 constexpr int MAXGENTIME = 30;
 constexpr int MAXGENT = 100000;
+constexpr int MAXT1 = 50;
+constexpr int MAXC = 50;
 int64_t iterations = 0;
 int num_operations = INF;
 int n, m, q, p[MAXN];
@@ -189,7 +191,7 @@ struct query_t {
 } query[MAXQ];
 std::mt19937 engine;
 std::vector<std::pair<int, edge_t*>> G[MAXN];
-std::vector<std::vector<int>> pretests;
+std::vector<std::pair<double, std::vector<int>>> pretests;
 const auto start_time = std::chrono::steady_clock::now();
 template<typename... T> void print(const T&... sth) {
 #ifdef __SMZ_NATIVE_TEST
@@ -996,25 +998,18 @@ void generate() { //输出瓶颈断边场景的交互部分
             }
             return x / y;
         };
-        for (const auto& pre : pretests) {
+        for (const auto& [_, pre] : pretests) {
             if (jaccard(pre, deleted) > 0.6) {
                 return false;
             }
         }
         return true;
     };
-    io::start_writing();
-    const int T1 = 50;
-    io::write_int(T1);
-    io::flush();
-    // std::uniform_int_distribution<int> gen(1, m);
-    // std::mt19937 mt(20140920);
     testcase::start();
     long long total = 0;
     for (int j = 1; j <= q; ++j) {
         total += query[j].value;
     }
-    std::vector<std::pair <double, std::vector<int> > > cases;
     for (int i = 0; i <= MAXGENT; ++i) {
         int c = std::min(50, m - n + 1);
         std::vector<int> deleted;
@@ -1070,18 +1065,25 @@ void generate() { //输出瓶颈断边场景的交互部分
             }
             deleted.resize(mx + 1);
         } while (deleted.size() == 1 || !check(deleted));
-        if(time_flag){
+        if (time_flag) {
             break;
         }
-        cases.push_back({delta, deleted});
-        pretests.push_back(std::move(deleted));
+        if (pretests.size() < MAXT1) {
+            pretests.push_back({delta, deleted});
+        }
+        else {
+            auto iter = std::min_element(pretests.begin(), pretests.end(), [](const auto& x, const auto& y) {
+                return x.first < y.first;
+            });
+            if (iter->first < delta) {
+                *iter = {delta, deleted};
+            }
+        }
     }
-
-    pretests.clear();
-    sort(cases.begin(), cases.end());
-    reverse(cases.begin(), cases.end());
-    cases.resize(T1);
-    for(auto [mx, deleted]: cases){
+    io::start_writing();
+    io::write_int(pretests.size());
+    io::flush();
+    for(auto [delta, deleted] : pretests){
         io::start_writing();
         io::write_int(deleted.size());
         io::newline();
@@ -1089,18 +1091,25 @@ void generate() { //输出瓶颈断边场景的交互部分
             io::write_int(e);
         }
         io::flush();
-        pretests.push_back(std::move(deleted));
     }
     #ifdef __SMZ_NATIVE_TEST
+    if (pretests.size() > MAXT1) {
+        abort();
+    }
+    for (const auto& [_, deleted] : pretests) {
+        if (deleted.size() > MAXC) {
+            abort();
+        }
+    }
     print("Data Generated.");
     double sum = 0;
-    for(auto [mx, deleted]: cases){
+    for (const auto& [mx, deleted] : pretests){
         sum += mx;
     }
     print("Score different: ", sum);
     #endif
 }
-int main() { // 114709 230255 41472.5
+int main() { // 129776 237915 41935.3
 #ifdef __SMZ_NATIVE_TEST
     std::ignore = freopen("testcase1.in", "r", stdin);
     std::ignore = freopen("output.txt", "w", stdout);
@@ -1127,7 +1136,7 @@ int main() { // 114709 230255 41472.5
             total += query[i].value;
         }
         if (idx < pretests.size()) {
-            data = pretests[idx];
+            data = pretests[idx].second;
             data.push_back(-1);
             std::reverse(data.begin(), data.end());
         }
