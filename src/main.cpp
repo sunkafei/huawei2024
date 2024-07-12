@@ -256,24 +256,54 @@ public:
         R = maxsize;
     }
     void push_front(const T& value) {
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (L <= 0) {
+            abort();
+        }
+        #endif
         L -= 1;
         data[L] = value;
     }
     void push_back(const T& value) {
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (R >= maxsize * 2) {
+            abort();
+        }
+        #endif
         data[R] = value;
         R += 1;
     }
     void pop_front() {
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (R <= L) {
+            abort();
+        }
+        #endif
         L += 1;
     }
     void pop_back() {
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (R <= L) {
+            abort();
+        }
+        #endif
         R -= 1;
     }
     template<typename... F> void emplace_back(F&&... args) {
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (R >= maxsize * 2) {
+            abort();
+        }
+        #endif
         new(&data[R]) T(std::forward<F>(args)...);
         R += 1;
     }
     template<typename... F> void emplace_front(F&&... args) {
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (L <= 0) {
+            abort();
+        }
+        #endif
         L -= 1;
         new(&data[L]) T(std::forward<F>(args)...);
     }
@@ -289,6 +319,11 @@ public:
         delete[] data;
     }    
     T& front() {
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (R <= L) {
+            abort();
+        }
+        #endif
         return data[L];
     }
     int size() const {
@@ -302,14 +337,29 @@ public:
         R = 0;
     }
     void push(const T& value) {
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (R >= maxsize) {
+            abort();
+        }
+        #endif
         data[R] = value;
         R += 1;
     }
     template<typename... F> void emplace(F&&... args) {
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (R >= maxsize) {
+            abort();
+        }
+        #endif
         new(&data[R]) T(std::forward<F>(args)...);
         R += 1;
     }
     void pop() {
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (R <= L) {
+            abort();
+        }
+        #endif
         L += 1;
     }
 };
@@ -534,11 +584,11 @@ namespace testcase {
 }
 namespace search {
     int first_vis[MAXN];
-    int64_t last[MAXQ], visit[MAXN][MAXK], timestamp = 1;
+    int64_t visit[MAXN][MAXK], timestamp = 1;
     int dist[MAXN][MAXK], same[MAXN][MAXK];
     std::tuple<int, int, int> father[MAXN][MAXK];
     std::bitset<MAXN> state[MAXN][MAXK];
-    deque_t<int, MAXN * MAXK * 2> A, B1, B2, C;
+    deque_t<int, MAXN * MAXK * 4> A, B1, B2, C;
     queue_t<int, MAXN> Q;
     int baseline[MAXN][MAXN];
     inline void preprocess(const std::vector<int>& nodes) {
@@ -643,7 +693,6 @@ namespace search {
                     visit[y][i] = timestamp;
                     dist[y][i] = INF;
                 }
-                const int weight = last[info->index] == timestamp;
                 if (dist[y][i] > dist[x][i] + 1) {
                     dist[y][i] = dist[x][i] + 1;
                     state[y][i] = state[x][i];
@@ -1090,7 +1139,7 @@ void generate() { //输出瓶颈断边场景的交互部分
         pretests.push_back(std::move(deleted));
     }
     #ifdef __SMZ_NATIVE_TEST
-    print("生成数据完毕。");
+    print("Data Generated.");
     #endif
 }
 int main() noexcept {
