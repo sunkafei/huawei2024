@@ -5,5 +5,8 @@
 /build/**/main
 /build/**/main.exe
 /build/**/output.txt
+/build/**/compile.main.pdb
+/build/**/main.ilk
+/build/**/main.pdb
 .DS_Store
 .vscode

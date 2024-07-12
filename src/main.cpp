@@ -220,24 +220,54 @@ public:
         R = maxsize;
     }
     void push_front(const T& value) {
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (L <= 0) {
+            abort();
+        }
+        #endif
         L -= 1;
         data[L] = value;
     }
     void push_back(const T& value) {
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (R >= maxsize * 2) {
+            abort();
+        }
+        #endif
         data[R] = value;
         R += 1;
     }
     void pop_front() {
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (R <= L) {
+            abort();
+        }
+        #endif
         L += 1;
     }
     void pop_back() {
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (R <= L) {
+            abort();
+        }
+        #endif
         R -= 1;
     }
     template<typename... F> void emplace_back(F&&... args) {
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (R >= maxsize * 2) {
+            abort();
+        }
+        #endif
         new(&data[R]) T(std::forward<F>(args)...);
         R += 1;
     }
     template<typename... F> void emplace_front(F&&... args) {
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (L <= 0) {
+            abort();
+        }
+        #endif
         L -= 1;
         new(&data[L]) T(std::forward<F>(args)...);
     }
@@ -253,6 +283,11 @@ public:
         delete[] data;
     }    
     T& front() {
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (R <= L) {
+            abort();
+        }
+        #endif
         return data[L];
     }
     int size() const {
@@ -266,14 +301,29 @@ public:
         R = 0;
     }
     void push(const T& value) {
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (R >= maxsize) {
+            abort();
+        }
+        #endif
         data[R] = value;
         R += 1;
     }
     template<typename... F> void emplace(F&&... args) {
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (R >= maxsize) {
+            abort();
+        }
+        #endif
         new(&data[R]) T(std::forward<F>(args)...);
         R += 1;
     }
     void pop() {
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (R <= L) {
+            abort();
+        }
+        #endif
         L += 1;
     }
 };
@@ -454,7 +504,7 @@ namespace search {
     int dist[MAXN][MAXK], same[MAXN][MAXK];
     std::tuple<int, int, int> father[MAXN][MAXK];
     std::bitset<MAXN> state[MAXN][MAXK];
-    deque_t<int, MAXN * MAXK * 2> A, B1, B2, C;
+    deque_t<int, MAXN * MAXK * 4> A, B1, B2, C;
     queue_t<int, MAXN> Q;
     int baseline[MAXN][MAXN];
     inline void preprocess(std::vector<int> deleted) {
@@ -463,21 +513,21 @@ namespace search {
         deleted.erase(iter, deleted.end());
         for (auto i : deleted) {
             const int start = query[i].to;
-			Q.clear();
-			for (int i = 1; i <= n; ++i) {
-				baseline[start][i] = INF;
-			}
-			baseline[start][start] = 0;
-			Q.push(start);
-			while (Q.size()) {
-				auto x = Q.front(); Q.pop();
-				for (auto [y, _] : G[x]) {
-					if (baseline[start][y] == INF) {
-						baseline[start][y] = baseline[start][x] + 1;
-						Q.push(y);
-					}
-				}
-			}
+            Q.clear();
+            for (int i = 1; i <= n; ++i) {
+                baseline[start][i] = INF;
+            }
+            baseline[start][start] = 0;
+            Q.push(start);
+            while (Q.size()) {
+                auto x = Q.front(); Q.pop();
+                for (auto [y, _] : G[x]) {
+                    if (baseline[start][y] == INF) {
+                        baseline[start][y] = baseline[start][x] + 1;
+                        Q.push(y);
+                    }
+                }
+            }
         }
     }
     inline path_t search(const query_t& qry) noexcept {
@@ -498,8 +548,8 @@ namespace search {
         }
         int channel = -1;
         while (A.size() || B1.size() || B2.size() || C.size()) {
-			while (A.empty()) {
-				A.clear();
+            while (A.empty()) {
+                A.clear();
                 //todo：更新合并方式
                 while (B1.size() && B2.size()) {
                     if (B1.front() > B2.front()) {
@@ -511,20 +561,20 @@ namespace search {
                         B2.pop_front();
                     }
                 }
-				while (B1.size()) {
-					A.push_front(B1.front());
-					B1.pop_front();
-				}
-				while (B2.size()) {
-					A.push_front(B2.front());
-					B2.pop_front();
-				}
-				B1.clear();
-				B2.clear();
-				std::swap(B2, C);
-			}
-			auto tmp = A.back(); A.pop_back();
-			int x = tmp & 0xFFF, i = tmp >> 12;
+                while (B1.size()) {
+                    A.push_front(B1.front());
+                    B1.pop_front();
+                }
+                while (B2.size()) {
+                    A.push_front(B2.front());
+                    B2.pop_front();
+                }
+                B1.clear();
+                B2.clear();
+                std::swap(B2, C);
+            }
+            auto tmp = A.back(); A.pop_back();
+            int x = tmp & 0xFFF, i = tmp >> 12;
             if (visit[x][i] > timestamp) {
                 continue;
             }
@@ -571,19 +621,19 @@ namespace search {
                     father[y][i] = {x, std::get<0>(father[x][i]) == x ? std::get<1>(father[x][i]) : i, info->index};
                     int estimate = dist[y][i] + baseline[qry.to][y];
                     if (estimate == base) {
-						A.push_back(y | (i << 12));
-					}
-					else if (estimate == base + 1) {
-						B1.push_back(y | (i << 12));
-					}
-					else {
+                        A.push_back(y | (i << 12));
+                    }
+                    else if (estimate == base + 1) {
+                        B1.push_back(y | (i << 12));
+                    }
+                    else {
                         #ifdef __SMZ_RUNTIME_CHECK
-						if (estimate != base + 2) {
+                        if (estimate != base + 2) {
                             abort();
                         }
                         #endif
-						C.push_back(y | (i << 12));
-					}
+                        C.push_back(y | (i << 12));
+                    }
                 }
             }
         }
@@ -615,7 +665,6 @@ namespace search {
         return path;
     }
 }
-
 path_t bfs(const query_t& qry, int start_c=1) {
     static int dist[MAXN][MAXK];
     static int pop_vis[MAXN][MAXK];
@@ -706,8 +755,7 @@ path_t bfs(const query_t& qry, int start_c=1) {
     std::reverse(path.begin(), path.end());
     return path;
 }
-
-template <bool once=true, bool is_baseline=false> std::vector<int> solve(int e) {
+template<bool once=true, bool is_baseline=false> std::vector<int> solve(int e) {
     int s = edges[e].first, t = edges[e].second;
     for (int i = 0; i < G[s].size(); ++i) {
         if (G[s][i].second->index == e) {
@@ -826,9 +874,10 @@ template <bool once=true, bool is_baseline=false> std::vector<int> solve(int e) 
     };
     const double base = runtime();
     const double time_limit = base + (MAXTIME - base) / num_operations;
-    if constexpr (once){
+    if constexpr (once) {
         proc(deleted);
-    }else{
+    }
+    else {
         if (deleted.size() <= 3) {
             std::vector<int> permutation;
             for (int i = 0; i < deleted.size(); ++i) {
@@ -896,7 +945,6 @@ template <bool once=true, bool is_baseline=false> std::vector<int> solve(int e) 
 #endif
     return ret;
 }
-
 namespace union_set {
     int fa[MAXN];
     void init(){
@@ -904,12 +952,10 @@ namespace union_set {
             fa[i] = i;
         }
     }
-
     int find(int x){
         if(fa[x] != x) fa[x] = find(fa[x]);
         return fa[x];
     }
-
     std::vector <int> gen(){
         std::vector <int> indices(m);
         std::vector <int> ret;
@@ -930,7 +976,6 @@ namespace union_set {
         return ret;
     }
 }
-
 void generate() { //输出瓶颈断边场景的交互部分
     auto check = [](const auto& deleted) {
         auto jaccard = [](const auto& A, const auto& B) {
@@ -1061,19 +1106,17 @@ int main() {
     std::ignore = freopen("output.txt", "w", stdout);
 #endif
     testcase::run();
-
     generate();
-
     //输出瓶颈断边场景的交互部分
     io::start_reading();
     int T = io::read_int();
     int idx = 0;
-    // #ifdef __SMZ_NATIVE_TEST
-    // T += pretests.size();
-    // if (pretests.empty()) {
-    //     abort();
-    // }
-    // #endif
+    #ifdef __SMZ_NATIVE_TEST
+    T += pretests.size();
+    if (pretests.empty()) {
+        abort();
+    }
+    #endif
     double score = 0;
     while (T) {
         testcase::start();
