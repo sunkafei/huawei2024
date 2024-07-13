@@ -936,59 +936,10 @@ template<bool once=true, bool is_baseline=false> std::vector<int> solve(int e) {
 #endif
     return ret;
 }
-namespace union_set {
-    int fa[MAXN];
-    void init(){
-        for(int i = 1; i <= n; i++){
-            fa[i] = i;
-        }
-    }
-    int find(int x){
-        if(fa[x] != x) fa[x] = find(fa[x]);
-        return fa[x];
-    }
-    std::vector<int> gen(){
-        std::vector <int> indices(m);
-        std::vector <int> ret;
-        for(int i = 1; i <= m; i++){
-            indices[i - 1] = i;
-        }
-        shuffle(indices.begin(), indices.end(), engine);
-
-        init();
-        for(auto i : indices){
-            int x = edges[i].first, y = edges[i].second;
-            if(find(x) == find(y)){
-                ret.push_back(i);
-            }else{
-                fa[find(x)] = find(y);
-            }
-        }
-        return ret;
-    }
-    std::vector<int> tree(){
-        std::vector <int> indices(m);
-        std::vector <int> ret;
-        for(int i = 1; i <= m; i++){
-            indices[i - 1] = i;
-        }
-        shuffle(indices.begin(), indices.end(), engine);
-
-        init();
-        for(auto i : indices){
-            int x = edges[i].first, y = edges[i].second;
-            if(find(x) != find(y)){
-                ret.push_back(i);
-                fa[find(x)] = find(y);
-            }
-        }
-        return ret;
-    }
-}
 void generate() { //输出瓶颈断边场景的交互部分
     static int64_t visit[MAXM];
     static int64_t timestamp = 1;
-    auto check = [](const auto& deleted, int ignore) {
+    auto check = [](const auto& deleted) {
         auto jaccard = [](const auto& A, const auto& B) {
             double x = 0, y = A.size();
             timestamp += 1;
@@ -1005,7 +956,7 @@ void generate() { //输出瓶颈断边场景的交互部分
             }
             return x / y;
         };
-        for (int i = 0; i < pretests.size(); ++i) if (i != ignore) {
+        for (int i = 0; i < pretests.size(); ++i) {
             if (jaccard(pretests[i], deleted) > 0.6) {
                 return false;
             }
@@ -1017,16 +968,23 @@ void generate() { //输出瓶颈断边场景的交互部分
     for (int j = 1; j <= q; ++j) {
         total += query[j].value;
     }
-    std::uniform_int_distribution<int> gen(0, MAXT1 - 1);
     std::vector<int> indices;
     for (int i = 1; i <= m; ++i) {
         indices.push_back(i);
     }
+    std::uniform_int_distribution<int> gen(0, MAXT1 - 1);
+    std::uniform_real_distribution<double> eps(0, 1e-5);
+    std::vector<std::vector<std::pair<double, int>>> cases;
+    std::vector<std::pair<double, int>> best;
     while (runtime() < MAXGENTIME) {
         std::vector<std::pair<double, int>> deleted;
         int index = -1;
-        if (pretests.size() < MAXT1) {
-            auto vec = union_set::gen();
+        if (best.empty()) {
+            std::vector<int> vec(m);
+            for (int i = 1; i <= m; ++i) {
+                vec[i - 1] = i;
+            }
+            std::shuffle(vec.begin(), vec.end(), engine);
             deleted.resize(vec.size());
             for (int j = 0; j < deleted.size(); ++j) {
                 deleted[j].second = vec[j];
@@ -1034,14 +992,10 @@ void generate() { //输出瓶颈断边场景的交互部分
         }
         else {
             timestamp += 1;
-            auto vec = union_set::tree();
-            for (auto i : vec) {
-                visit[i] = timestamp;
-            }
             index = gen(engine);
-            deleted = pretests[index];
+            deleted = best;
             for (int i = (int)deleted.size() - 1; i >= 1; --i) {
-                deleted[i].first = deleted[i].first - deleted[i - 1].first;
+                deleted[i].first = deleted[i].first - deleted[i - 1].first + eps(engine);
             }
             std::vector<int> order(deleted.size());
             for (int i = 0; i < deleted.size(); ++i) {
@@ -1051,10 +1005,8 @@ void generate() { //输出瓶颈断边场景的交互部分
                 return deleted[x].first < deleted[y].first;
             });
             int r = std::max(std::sqrt(deleted.size()), 1.0);
-            for (int i = 0; i < deleted.size(); ++i) {
-                if (i < r || visit[deleted[order[i]].second] == timestamp) {
-                    deleted[order[i]].second = -1;
-                }
+            for (int i = 0; i < r; ++i) {
+                deleted[order[i]].second = -1;
             }
             auto iter = std::remove_if(deleted.begin(), deleted.end(), [](auto pair) {
                 return pair.second == -1;
@@ -1070,7 +1022,7 @@ void generate() { //输出瓶颈断边场景的交互部分
                     break;
                 }
             }
-            std::bernoulli_distribution bernoulli(1.0 / r);
+            std::bernoulli_distribution bernoulli(0.25);
             std::reverse(deleted.begin(), deleted.end());
             for (int i = 1; i < deleted.size(); ++i) if (bernoulli(engine)) {
                 int j = std::rand() % i;
@@ -1111,14 +1063,20 @@ void generate() { //输出瓶颈断边场景的交互部分
             }
         }
         deleted.resize(mx + 1);
-        if (deleted.size() == 1 || !check(deleted, index)) {
-            continue;
+        if (best.empty() || deleted.back().first > best.back().first) {
+            best = deleted;
         }
-        if (pretests.size() < MAXT1) {
-            pretests.push_back(deleted);
-        }
-        else if (pretests[index].back().first < deleted.back().first) {
-            pretests[index] = deleted;
+        cases.push_back(std::move(deleted));
+    }
+    std::sort(cases.begin(), cases.end(), [](const auto& x, const auto& y) {
+        return x.back().first > y.back().first;
+    });
+    for (auto& deleted : cases) {
+        if (check(deleted)) {
+            pretests.push_back(std::move(deleted));
+            if (pretests.size() == MAXT1) {
+                break;
+            }
         }
     }
     io::start_writing();
@@ -1150,7 +1108,7 @@ void generate() { //输出瓶颈断边场景的交互部分
     print("Score different: ", sum);
     #endif
 }
-int main() { // 144753 243532 43082.9
+int main() { // 147534 286723 49565 
 #ifdef __SMZ_NATIVE_TEST
     std::ignore = freopen("testcase1.in", "r", stdin);
     std::ignore = freopen("output.txt", "w", stdout);
