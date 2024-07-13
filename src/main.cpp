@@ -983,6 +983,7 @@ void generate() { //输出瓶颈断边场景的交互部分
         }
         std::vector<std::pair<double, int>> deleted;
         if (best.empty() || now - last > 10) {
+            best.clear();
             for (int i = 1; i <= m; ++i) {
                 best.emplace_back(0.0, i);
             }
@@ -1121,9 +1122,9 @@ void generate() { //输出瓶颈断边场景的交互部分
     print("Score different: ", sum);
     #endif
 }
-int main() { // 157175 305106 49565 
+int main() { // 156188 314340 40971.6 
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("testcase2.in", "r", stdin);
+    std::ignore = freopen("smz.in", "r", stdin);
     std::ignore = freopen("output.txt", "w", stdout);
 #endif
     testcase::run();
