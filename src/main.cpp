@@ -996,16 +996,6 @@ void generate() { //输出瓶颈断边场景的交互部分
             break;
         }
         std::vector<std::pair<double, int>> deleted;
-        /*if (best.empty() || now - last > 10) {
-            best.clear();
-            for (int i = 1; i <= m; ++i) {
-                best.emplace_back(0.0, i);
-            }
-            std::shuffle(best.begin(), best.end(), engine);
-            if (best.size() > MAXC) {
-                best.resize(MAXC);
-            }
-        }*/
         timestamp += 1;
         while (std::get<1>(queue.top()) <= 0) {
             queue.pop();
@@ -1081,10 +1071,6 @@ void generate() { //输出瓶颈断边场景的交互部分
             }
         }
         deleted.resize(mx + 1);
-        /*if (best.empty() || deleted.back().first > best.back().first) {
-            best = deleted;
-            last = runtime();
-        }*/
         queue.emplace(deleted.back().first, DEGREE, std::move(deleted));
     }
     std::vector<std::vector<std::pair<double, int>>> cases;
