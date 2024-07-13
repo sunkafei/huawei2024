@@ -1067,6 +1067,20 @@ void generate() { //输出瓶颈断边场景的交互部分
         }
         cases.push_back(std::move(deleted));
     }
+    #ifdef __SMZ_RUNTIME_CHECK
+    for (auto& deleted : cases) {
+        timestamp += 1;
+        for (auto [_, i] : deleted) {
+            if (i <= 0 || i > m) {
+                abort();
+            }
+            if (visit[i] == timestamp) {
+                abort();
+            }
+            visit[i] = timestamp;
+        }
+    }
+    #endif
     std::sort(cases.begin(), cases.end(), [](const auto& x, const auto& y) {
         return x.back().first > y.back().first;
     });
@@ -1109,7 +1123,7 @@ void generate() { //输出瓶颈断边场景的交互部分
 }
 int main() { // 157175 305106 49565 
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("smz.in", "r", stdin);
+    std::ignore = freopen("testcase2.in", "r", stdin);
     std::ignore = freopen("output.txt", "w", stdout);
 #endif
     testcase::run();
