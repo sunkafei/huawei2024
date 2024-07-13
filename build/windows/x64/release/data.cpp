@@ -15,7 +15,7 @@
 using namespace std;
 const int MAXN = 207, MAXM = 1000;
 const int Q_LIM = 2007, K=40;
-
+int SEARCH_WAY = 0,RANGE_LIM = 1;
 
 
 struct tag{
@@ -85,9 +85,8 @@ bool get_path(int s,int t) {
     // cout << "get_path" <<s <<" "<<t<<endl;
 
     while(op < ed) {
-        // int r = rand();
-        // if (r % 2 == 0) sort(q + op, q + ed, cmp_1);
-        // else sort(q + op, q + ed, cmp_2);
+        if (SEARCH_WAY % 4 == 1 or SEARCH_WAY % 4 == 3 and rand() % 2 == 0) sort(q + op, q + ed, cmp_1);
+        if (SEARCH_WAY % 4 == 2 or SEARCH_WAY % 4 == 3 and rand() % 2 == 1) sort(q + op, q + ed, cmp_2);
         auto tp = q[op];
         int x = tp.first;
         // cout << "op" << op <<" " << "ed" <<" " << ed << " " << x <<" "<<tp.second.first<<endl;
@@ -120,11 +119,12 @@ pair<int,int> get_rand_seg(pair<int,int> seg){
     int l = seg.first;
     int r = seg.second;
     int x[52] = {0};
-    for(int i = 0;i < 1;i++) x[i] = rand() % (r - l + 1);
+    for(int i = 0;i < RANGE_LIM;i++) x[i] = rand() % (r - l + 1);
     // return make_pair(min(x,min(y,z)),max(x,(max(y,z))));
     // return make_pair(min(x,y),max(x,y));
     return make_pair(l , l + *max_element(x,x + 50));
 }
+
 void get_output(tag &tp) {
     tp.path.clear();
     // cout << "Q[op]:"<<q[op-1].first<<" "<<q[op-1].second.first << endl;
@@ -225,7 +225,7 @@ void GabrielGraph() {
 
     while (points.size() < n) {
         Point newPoint = generateRandomPoint();
-        std::cout << points.size() << endl;
+        // std::cout << points.size() << endl;
         bool isDuplicateFound = false;
         for (const auto& existingPoint : points) {
             if (isDuplicate(newPoint, existingPoint)) {
@@ -258,112 +258,129 @@ void GabrielGraph() {
     return;
 }
 int main(){
-    srand(time(NULL));
-    ofstream outfile;
-    string rule;
-    cin >> rule;
-    outfile.open("testcase2.in");
+    int goon = true;
+    while(goon) {
+        srand(time(NULL));
+        SEARCH_WAY = rand () % 4;
+        RANGE_LIM = rand() % 50 + 1;
+        ofstream outfile;
+        // string rule;
+        // cin >> rule;
+        outfile.open("testcase2.in");
 
-    for(int i = 0;i <= n;i++) p[i] = rand() % 10 + 10;
-    if (rule != "gg") {//不生成gg图
-            for(int i = 1;i < n;i++) {
-            edge.push_back(make_pair(i,i + 1));
+        for(int i = 0;i <= n;i++) {
+            p[i] = rand() % 10 + 10;
+            to[i].clear();
         }
-    }
-    else {//尝试生成gg图
-        GabrielGraph();
-        // for(auto [x,y] : edge) {
-        //     cout << x <<" " << y << endl;
+        edge.clear();
+        mission.clear();
+        for(int i = 0;i <= m;i++) h[i].reset();
+
+
+        int graph = rand() % 2;
+        if (graph) {//不生成gg图
+                for(int i = 1;i < n;i++) {
+                edge.push_back(make_pair(i,i + 1));
+            }
+        }
+        else {//尝试生成gg图
+            GabrielGraph();
+            // for(auto [x,y] : edge) {
+            //     cout << x <<" " << y << endl;
+            // }
+        }
+        cout << "init edge.size() " << edge.size() << endl;
+        while(edge.size() < m) {
+            int x = rand() % n + 1;
+            int y = rand() % n + 1;
+            while(y == x) y = rand() % n + 1;
+            if(x > y) swap(x,y);
+            if (find(edge.begin(),edge.end(),make_pair(x,y)) != edge.end()) {
+                continue;
+            }
+            edge.push_back(make_pair(x,y));
+        }
+        cout << "total edge.size() " << edge.size() << endl;
+        random_shuffle(edge.begin(),edge.end());
+        for(int i = 0;i < edge.size();i++) {
+            if (rand() & 1) swap(edge[i].first,edge[i].second);
+            to[edge[i].first].push_back(make_pair(edge[i].second,i));
+            to[edge[i].second].push_back(make_pair(edge[i].first,i));
+        }
+
+        set<pair<int,int>> S;
+        for(auto x : edge) S.insert(make_pair(min(x.first,x.second),max(x.first,x.second)));
+        // cout << S.size() <<" " << edge.size()<<endl;
+        assert(S.size() == edge.size());
+        // sort(edge.begin(),edge.end());
+
+
+        int J = 100;
+        for(int i = 1;i <= J;i++) {
+            // if(i % 10 == 0) cout << "edge:" << i << endl;
+            tag tp;
+            tp.src = rand() % n + 1;
+            tp.snk = rand() % n + 1;
+            while(tp.src == tp.snk) tp.snk = rand() % n + 1;
+            if(get_path(tp.src,tp.snk)) {
+                // cout <<" pre success" << tp.src <<" "<<tp.snk << " " << mission.size() <<endl;
+                get_output(tp);
+                mission.push_back(tp);
+                // cout <<" las success" << tp.src <<" "<<tp.snk << " " <<mission.size() <<endl;
+            }
+        }
+        cout<<"j="<<mission.size()<<endl;
+        outfile<<n<<" "<<m<<endl;
+        for(int i = 1;i <= n;i++) outfile<<p[i]<<" ";outfile<<endl;
+        for(auto x : edge) {
+            outfile << x.first <<" " << x.second<<endl;
+        }
+        outfile<<mission.size()<<endl;
+        for(auto x: mission) {
+            outfile << x.src <<" " << x.snk<<" "<<x.path.size()<< " " <<x.l + 1<<" " <<x.r + 1<<" "<<x.v<<endl;
+            for(auto j : x.path) {
+                outfile << j + 1<<" ";
+            }outfile << endl;
+        }
+        // for(int i = 0;i < edge.size();i++) {
+        //     cout << i <<" " <<h[i]<<endl;
         // }
-    }
-    cout << "edge.size()" << edge.size() << endl;
-    while(edge.size() < m) {
-        int x = rand() % n + 1;
-        int y = rand() % n + 1;
-        while(y == x) y = rand() % n + 1;
-        if(x > y) swap(x,y);
-        if (find(edge.begin(),edge.end(),make_pair(x,y)) != edge.end()) {
-            continue;
+        int t = 50;
+        outfile << t << endl;
+        
+        double num[107] = {0};
+        // for(int i = 1;i <= t;i++) num[i] = i;
+        for(int i = 1;i <= t;i++) num[i] = rand();
+        double sum = accumulate(num + 1,num + t + 1 ,0);
+
+        while(t) {
+            int x = round(num[t] * 50 * t / sum);
+            x = min(x,50);
+            int kill[MAXM] = {0};
+            for(int j = 1;j <= m;j++) kill[j] = j;
+            random_shuffle(kill+1,kill + m + 1);
+            for(int i = 1;i <= min(x,m);i++) outfile << kill[i] << endl;
+            outfile << -1 << endl;
+            t--;
         }
-        edge.push_back(make_pair(x,y));
-    }
-    cout << "final edge.size()" << edge.size() << endl;
-    random_shuffle(edge.begin(),edge.end());
-    for(int i = 0;i < edge.size();i++) {
-        if (rand() & 1) swap(edge[i].first,edge[i].second);
-        to[edge[i].first].push_back(make_pair(edge[i].second,i));
-        to[edge[i].second].push_back(make_pair(edge[i].first,i));
-    }
+        // t = 40;
+        // while(t) {
+        //     int x = 1;
+        //     int kill[MAXM] = {0};
+        //     for(int j = 1;j <= m;j++) kill[j] = j;
+        //     random_shuffle(kill+1,kill + m + 1);
+        //     for(int i = 1;i <= min(x,m);i++) outfile << kill[i] << endl;
+        //     outfile << -1 << endl;
+        //     t--;
+        // }
+        outfile.close();
 
-    set<pair<int,int>> S;
-    for(auto x : edge) S.insert(make_pair(min(x.first,x.second),max(x.first,x.second)));
-    // cout << S.size() <<" " << edge.size()<<endl;
-    assert(S.size() == edge.size());
-    // sort(edge.begin(),edge.end());
-
-
-    int J = 100;
-    for(int i = 1;i <= J;i++) {
-        if(i % 10 == 0) cout << "edge:" << i << endl;
-        tag tp;
-        tp.src = rand() % n + 1;
-        tp.snk = rand() % n + 1;
-        while(tp.src == tp.snk) tp.snk = rand() % n + 1;
-        if(get_path(tp.src,tp.snk)) {
-            // cout <<" pre success" << tp.src <<" "<<tp.snk << " " << mission.size() <<endl;
-            get_output(tp);
-            mission.push_back(tp);
-            // cout <<" las success" << tp.src <<" "<<tp.snk << " " <<mission.size() <<endl;
-        }
+        static int idx = 0;
+        idx++;
+        string command = "main\n";
+        cout << "building data done. NO." << idx << endl;
+        int res = system(command.c_str());
+        goon = (res == 0);
     }
-    cout<<mission.size()<<endl;
-    outfile<<n<<" "<<m<<endl;
-    for(int i = 1;i <= n;i++) outfile<<p[i]<<" ";outfile<<endl;
-    for(auto x : edge) {
-        outfile << x.first <<" " << x.second<<endl;
-    }
-    outfile<<mission.size()<<endl;
-    for(auto x: mission) {
-        outfile << x.src <<" " << x.snk<<" "<<x.path.size()<< " " <<x.l + 1<<" " <<x.r + 1<<" "<<x.v<<endl;
-        for(auto j : x.path) {
-            outfile << j + 1<<" ";
-        }outfile << endl;
-    }
-    // for(int i = 0;i < edge.size();i++) {
-    //     cout << i <<" " <<h[i]<<endl;
-    // }
-    int t = 50;
-    outfile << t << endl;
-    
-    double num[107] = {0};
-    // for(int i = 1;i <= t;i++) num[i] = i;
-    for(int i = 1;i <= t;i++) num[i] = rand();
-    double sum = accumulate(num + 1,num + t + 1 ,0);
-
-    while(t) {
-        int x = round(num[t] * 50 * t / sum);
-        x = min(x,50);
-        int kill[MAXM] = {0};
-        for(int j = 1;j <= m;j++) kill[j] = j;
-        random_shuffle(kill+1,kill + m + 1);
-        for(int i = 1;i <= min(x,m);i++) outfile << kill[i] << endl;
-        outfile << -1 << endl;
-        t--;
-    }
-    // t = 40;
-    // while(t) {
-    //     int x = 1;
-    //     int kill[MAXM] = {0};
-    //     for(int j = 1;j <= m;j++) kill[j] = j;
-    //     random_shuffle(kill+1,kill + m + 1);
-    //     for(int i = 1;i <= min(x,m);i++) outfile << kill[i] << endl;
-    //     outfile << -1 << endl;
-    //     t--;
-    // }
-    outfile.close();
-
-    string command = "main\n";
-    cout << "building data done.";
-    system(command.c_str());
     return 0;
 }
