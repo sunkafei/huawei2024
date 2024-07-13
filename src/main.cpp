@@ -22,6 +22,7 @@ constexpr int MAXGENTIME = 30;
 constexpr int MAXT1 = 50;
 constexpr int MAXC = 50;
 constexpr int DEGREE = 50;
+constexpr double MAXJACCARD = 0.6;
 int64_t iterations = 0;
 int num_operations = INF;
 int n, m, q, p[MAXN];
@@ -1033,7 +1034,8 @@ void generate() { //输出瓶颈断边场景的交互部分
                 break;
             }
         }
-        std::bernoulli_distribution bernoulli(0.25);
+        constexpr double probability = (1 - MAXJACCARD) / (1 + MAXJACCARD);
+        std::bernoulli_distribution bernoulli(probability);
         std::reverse(deleted.begin(), deleted.end());
         for (int i = 1; i < deleted.size(); ++i) if (bernoulli(engine)) {
             int j = std::rand() % i;
