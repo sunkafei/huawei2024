@@ -990,6 +990,7 @@ void generate() { //输出瓶颈断边场景的交互部分
     }
     queue.emplace(0, DEGREE, init);
     double last = runtime();
+    std::vector<std::vector<std::pair<double, int>>> cases;
     for (;;) {
         double now = runtime();
         if (now > MAXGENTIME) {
@@ -997,7 +998,8 @@ void generate() { //输出瓶颈断边场景的交互部分
         }
         std::vector<std::pair<double, int>> deleted;
         timestamp += 1;
-        while (std::get<1>(queue.top()) <= 0) {
+        while (queue.size() > 1 && std::get<1>(queue.top()) <= 0) {
+            cases.push_back(std::get<2>(queue.top()));
             queue.pop();
         }
         auto& [_, cnt, best] = queue.top();
@@ -1073,10 +1075,8 @@ void generate() { //输出瓶颈断边场景的交互部分
         deleted.resize(mx + 1);
         queue.emplace(deleted.back().first, DEGREE, std::move(deleted));
     }
-    std::vector<std::vector<std::pair<double, int>>> cases;
     while (queue.size()) {
-        auto& sequence = std::get<2>(queue.top());
-        cases.push_back(std::move(sequence));
+        cases.push_back(std::get<2>(queue.top()));
         queue.pop();
     }
     #ifdef __SMZ_RUNTIME_CHECK
@@ -1133,9 +1133,9 @@ void generate() { //输出瓶颈断边场景的交互部分
     print("Score different: ", sum);
     #endif
 }
-int main() { // 163229 344170 45482.9 
+int main() { // 200359 358809 45675.1 
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("testcase1.in", "r", stdin);
+    std::ignore = freopen("smz.in", "r", stdin);
     std::ignore = freopen("output.txt", "w", stdout);
 #endif
     testcase::run();
