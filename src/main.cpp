@@ -10,6 +10,7 @@
 #include <unordered_set>
 #include <bitset>
 #include <cmath>
+#include <queue>
 constexpr int INF = 1 << 30;
 constexpr int k = 40;
 constexpr int MAXK = 44;
@@ -20,6 +21,7 @@ constexpr int MAXTIME = 89;
 constexpr int MAXGENTIME = 30;
 constexpr int MAXT1 = 50;
 constexpr int MAXC = 50;
+constexpr int DEGREE = 50;
 int64_t iterations = 0;
 int num_operations = INF;
 int n, m, q, p[MAXN];
@@ -972,9 +974,21 @@ void generate() { //输出瓶颈断边场景的交互部分
     for (int i = 1; i <= m; ++i) {
         indices.push_back(i);
     }
+    using case_t = std::tuple<double, int, std::vector<std::pair<double, int>>>;
+    auto compare = [](const auto& x, const auto& y) {
+        return std::get<0>(x) < std::get<0>(y);
+    };
     std::uniform_real_distribution<double> eps(0, 1e-5);
-    std::vector<std::vector<std::pair<double, int>>> cases;
-    std::vector<std::pair<double, int>> best;
+    std::priority_queue<case_t, std::vector<case_t>, decltype(compare)> queue(compare);
+    std::vector<std::pair<double, int>> init;
+    for (int i = 1; i <= m; ++i) {
+        init.emplace_back(0.0, i);
+    }
+    std::shuffle(init.begin(), init.end(), engine);
+    if (init.size() > MAXC) {
+        init.resize(MAXC);
+    }
+    queue.emplace(0, DEGREE, init);
     double last = runtime();
     for (;;) {
         double now = runtime();
@@ -982,7 +996,7 @@ void generate() { //输出瓶颈断边场景的交互部分
             break;
         }
         std::vector<std::pair<double, int>> deleted;
-        if (best.empty() || now - last > 10) {
+        /*if (best.empty() || now - last > 10) {
             best.clear();
             for (int i = 1; i <= m; ++i) {
                 best.emplace_back(0.0, i);
@@ -991,8 +1005,13 @@ void generate() { //输出瓶颈断边场景的交互部分
             if (best.size() > MAXC) {
                 best.resize(MAXC);
             }
-        }
+        }*/
         timestamp += 1;
+        while (std::get<1>(queue.top()) <= 0) {
+            queue.pop();
+        }
+        auto& [_, cnt, best] = queue.top();
+        const_cast<int&>(cnt) -= 1;
         deleted = best;
         for (int i = (int)deleted.size() - 1; i >= 1; --i) {
             deleted[i].first = deleted[i].first - deleted[i - 1].first + eps(engine);
@@ -1062,11 +1081,17 @@ void generate() { //输出瓶颈断边场景的交互部分
             }
         }
         deleted.resize(mx + 1);
-        if (best.empty() || deleted.back().first > best.back().first) {
+        /*if (best.empty() || deleted.back().first > best.back().first) {
             best = deleted;
             last = runtime();
-        }
-        cases.push_back(std::move(deleted));
+        }*/
+        queue.emplace(deleted.back().first, DEGREE, std::move(deleted));
+    }
+    std::vector<std::vector<std::pair<double, int>>> cases;
+    while (queue.size()) {
+        auto& sequence = std::get<2>(queue.top());
+        cases.push_back(std::move(sequence));
+        queue.pop();
     }
     #ifdef __SMZ_RUNTIME_CHECK
     for (auto& deleted : cases) {
@@ -1122,9 +1147,9 @@ void generate() { //输出瓶颈断边场景的交互部分
     print("Score different: ", sum);
     #endif
 }
-int main() { // 156188 314340 40971.6 
+int main() { // 163229 344170 45482.9 
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("smz.in", "r", stdin);
+    std::ignore = freopen("testcase1.in", "r", stdin);
     std::ignore = freopen("output.txt", "w", stdout);
 #endif
     testcase::run();
