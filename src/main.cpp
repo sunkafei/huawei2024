@@ -972,64 +972,62 @@ void generate() { //输出瓶颈断边场景的交互部分
     for (int i = 1; i <= m; ++i) {
         indices.push_back(i);
     }
-    std::uniform_int_distribution<int> gen(0, MAXT1 - 1);
     std::uniform_real_distribution<double> eps(0, 1e-5);
     std::vector<std::vector<std::pair<double, int>>> cases;
     std::vector<std::pair<double, int>> best;
-    while (runtime() < MAXGENTIME) {
+    double last = runtime();
+    for (;;) {
+        double now = runtime();
+        if (now > MAXGENTIME) {
+            break;
+        }
         std::vector<std::pair<double, int>> deleted;
-        int index = -1;
-        if (best.empty()) {
-            std::vector<int> vec(m);
+        if (best.empty() || now - last > 10) {
             for (int i = 1; i <= m; ++i) {
-                vec[i - 1] = i;
+                best.emplace_back(0.0, i);
             }
-            std::shuffle(vec.begin(), vec.end(), engine);
-            deleted.resize(vec.size());
-            for (int j = 0; j < deleted.size(); ++j) {
-                deleted[j].second = vec[j];
+            std::shuffle(best.begin(), best.end(), engine);
+            if (best.size() > MAXC) {
+                best.resize(MAXC);
             }
         }
-        else {
-            timestamp += 1;
-            index = gen(engine);
-            deleted = best;
-            for (int i = (int)deleted.size() - 1; i >= 1; --i) {
-                deleted[i].first = deleted[i].first - deleted[i - 1].first + eps(engine);
-            }
-            std::vector<int> order(deleted.size());
-            for (int i = 0; i < deleted.size(); ++i) {
-                order[i] = i;
-            }
-            std::sort(order.begin(), order.end(), [&](int x, int y) {
-                return deleted[x].first < deleted[y].first;
-            });
-            int r = std::max(std::sqrt(deleted.size()), 1.0);
-            for (int i = 0; i < r; ++i) {
-                deleted[order[i]].second = -1;
-            }
-            auto iter = std::remove_if(deleted.begin(), deleted.end(), [](auto pair) {
-                return pair.second == -1;
-            });
-            deleted.erase(iter, deleted.end());
-            std::shuffle(indices.begin(), indices.end(), engine);
-            for (auto [v, i] : deleted) {
-                visit[i] = timestamp;
-            }
-            for (auto i : indices) if (visit[i] != timestamp) {
-                deleted.emplace_back(0, i);
-                if (deleted.size() >= MAXC) {
-                    break;
-                }
-            }
-            std::bernoulli_distribution bernoulli(0.25);
-            std::reverse(deleted.begin(), deleted.end());
-            for (int i = 1; i < deleted.size(); ++i) if (bernoulli(engine)) {
-                int j = std::rand() % i;
-                std::swap(deleted[i], deleted[j]);
-            }
-            std::reverse(deleted.begin(), deleted.end());
+        timestamp += 1;
+        deleted = best;
+        for (int i = (int)deleted.size() - 1; i >= 1; --i) {
+            deleted[i].first = deleted[i].first - deleted[i - 1].first + eps(engine);
         }
+        std::vector<int> order(deleted.size());
+        for (int i = 0; i < deleted.size(); ++i) {
+            order[i] = i;
+        }
+        std::sort(order.begin(), order.end(), [&](int x, int y) {
+            return deleted[x].first < deleted[y].first;
+        });
+        int r = std::max(std::sqrt(deleted.size()), 1.0);
+        for (int i = 0; i < r; ++i) {
+            deleted[order[i]].second = -1;
+        }
+        auto iter = std::remove_if(deleted.begin(), deleted.end(), [](auto pair) {
+            return pair.second == -1;
+        });
+        deleted.erase(iter, deleted.end());
+        std::shuffle(indices.begin(), indices.end(), engine);
+        for (auto [v, i] : deleted) {
+            visit[i] = timestamp;
+        }
+        for (auto i : indices) if (visit[i] != timestamp) {
+            deleted.emplace_back(0, i);
+            if (deleted.size() >= MAXC) {
+                break;
+            }
+        }
+        std::bernoulli_distribution bernoulli(0.25);
+        std::reverse(deleted.begin(), deleted.end());
+        for (int i = 1; i < deleted.size(); ++i) if (bernoulli(engine)) {
+            int j = std::rand() % i;
+            std::swap(deleted[i], deleted[j]);
+        }
+        std::reverse(deleted.begin(), deleted.end());
         if (deleted.size() > MAXC) {
             deleted.resize(MAXC);
         }
@@ -1065,6 +1063,7 @@ void generate() { //输出瓶颈断边场景的交互部分
         deleted.resize(mx + 1);
         if (best.empty() || deleted.back().first > best.back().first) {
             best = deleted;
+            last = runtime();
         }
         cases.push_back(std::move(deleted));
     }
@@ -1108,9 +1107,9 @@ void generate() { //输出瓶颈断边场景的交互部分
     print("Score different: ", sum);
     #endif
 }
-int main() { // 147534 286723 49565 
+int main() { // 157175 305106 49565 
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("testcase1.in", "r", stdin);
+    std::ignore = freopen("smz.in", "r", stdin);
     std::ignore = freopen("output.txt", "w", stdout);
 #endif
     testcase::run();
