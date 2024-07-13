@@ -201,7 +201,7 @@ std::vector<std::pair<int, int>> generateGabrielGraph(const std::vector<Point>& 
                 }
             }
             if (isGabriel) {
-                edges.emplace_back(i, j);
+                edges.emplace_back(i + 1, j + 1);
             }
         }
     }
@@ -333,7 +333,8 @@ int main(){
         outfile<<n<<" "<<m<<endl;
         for(int i = 1;i <= n;i++) outfile<<p[i]<<" ";outfile<<endl;
         for(auto x : edge) {
-            outfile << x.first <<" " << x.second<<endl;
+            assert(x.first !=0 and x.second != 0);
+            outfile << x.first<<" " << x.second<<endl;
         }
         outfile<<mission.size()<<endl;
         for(auto x: mission) {
@@ -380,6 +381,7 @@ int main(){
         string command = "main\n";
         cout << "building data done. NO." << idx << endl;
         int res = system(command.c_str());
+        // int res = 0;
         goon = (res == 0);
     }
     return 0;
