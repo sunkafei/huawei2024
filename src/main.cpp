@@ -201,6 +201,12 @@ template<typename... T> void print(const T&... sth) {
     (..., (std::cerr << sth << " ")) << std::endl;
 #endif
 }
+template<typename T> void print(const std::vector<T>& vec) {
+    for (const auto& v : vec) {
+        std::cerr << v << ' ';
+    }
+    std::cerr << std::endl;
+}
 template<typename T, int maxsize> class deque_t {
 private:
     T* data;
@@ -330,6 +336,51 @@ public:
         }
         #endif
         L += 1;
+    }
+};
+template<typename T, int maxsize> class vector_t {
+private:
+    T* data;
+    int sz = 0;
+public:
+    vector_t() : data(new T[maxsize]) {}
+    ~vector_t() {
+        delete[] data;
+    }    
+    int size() const {
+        return sz;
+    }
+    bool empty() const {
+        return sz == 0;
+    }
+    void clear() {
+        sz = 0;
+    }
+    void push_back(const T& value) {
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (sz >= maxsize) {
+            abort();
+        }
+        #endif
+        data[sz] = value;
+        sz += 1;
+    }
+    template<typename... F> void emplace_back(F&&... args) {
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (sz >= maxsize) {
+            abort();
+        }
+        #endif
+        new(&data[sz]) T(std::forward<F>(args)...);
+        sz += 1;
+    }
+    void pop_back() {
+        #ifdef __SMZ_RUNTIME_CHECK
+        if (sz <= 0) {
+            abort();
+        }
+        #endif
+        sz -= 1;
     }
 };
 double runtime() {
