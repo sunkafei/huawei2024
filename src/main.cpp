@@ -382,6 +382,12 @@ public:
         #endif
         sz -= 1;
     }
+    T* begin() {
+        return data;
+    }
+    T* end() {
+        return data + sz;
+    }
 };
 double runtime() {
     auto now = std::chrono::steady_clock::now();
@@ -1043,6 +1049,7 @@ void generate() { //输出瓶颈断边场景的交互部分
     queue.emplace(0, DEGREE, init);
     double last = runtime();
     std::vector<std::vector<std::pair<double, int>>> cases;
+    vector_t<int, MAXC> position[MAXC];
     for (;;) {
         double now = runtime();
         if (now > MAXGENTIME) {
@@ -1085,14 +1092,25 @@ void generate() { //输出瓶颈断边场景的交互部分
                 break;
             }
         }
-        constexpr double probability = (1 - MAXJACCARD) / (1 + MAXJACCARD);
-        std::bernoulli_distribution bernoulli(probability);
-        std::reverse(deleted.begin(), deleted.end());
-        for (int i = 1; i < deleted.size(); ++i) if (bernoulli(engine)) {
-            int j = std::rand() % i;
-            std::swap(deleted[i], deleted[j]);
+        //constexpr double probability = (1 - MAXJACCARD) / (1 + MAXJACCARD);
+        std::bernoulli_distribution bernoulli(1.0 / r);
+        std::uniform_int_distribution<int> uniform(0, MAXC - 1);
+        for (int i = 0; i < MAXC; ++i) {
+            position[i].clear();
         }
-        std::reverse(deleted.begin(), deleted.end());
+        for (int i = (int)deleted.size() - 1; i >= 0; --i) {
+            int j = i;
+            if (bernoulli(engine)) {
+                j = uniform(engine);
+            }
+            position[j].push_back(deleted[i].second);
+        }
+        deleted.clear();
+        for (int i = 0; i < MAXC; ++i) {
+            for (auto j : position[i]) {
+                deleted.emplace_back(0.0, j);
+            }
+        }
         if (deleted.size() > MAXC) {
             deleted.resize(MAXC);
         }
@@ -1120,7 +1138,7 @@ void generate() { //输出瓶颈断边场景的交互部分
         int delta = deleted[0].first;
         for (int j = 0; j < deleted.size(); ++j) {
             auto d = deleted[j].first;
-            if(d > delta){
+            if (d > delta) {
                 delta = d;
                 mx = j;
             }
@@ -1186,7 +1204,7 @@ void generate() { //输出瓶颈断边场景的交互部分
     print("Score different: ", sum);
     #endif
 }
-int main() { // 200359 358809 45675.1 
+int main() { // 244843 368043 45675.1(43761.6)
 #ifdef __SMZ_NATIVE_TEST
     std::ignore = freopen("smz.in", "r", stdin);
     std::ignore = freopen("output.txt", "w", stdout);
