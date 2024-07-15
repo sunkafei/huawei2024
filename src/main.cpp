@@ -11,6 +11,7 @@
 #include <bitset>
 #include <cmath>
 #include <queue>
+#include <tuple>
 constexpr int INF = 1 << 30;
 constexpr int k = 40;
 constexpr int MAXK = 44;
@@ -25,177 +26,59 @@ constexpr int DEGREE = 50;
 constexpr double MAXJACCARD = 0.6;
 int64_t iterations = 0;
 int num_operations = INF;
-int n, m, q, p[MAXN];
-using path_t = std::vector<std::pair<int, int>>;
-struct edge_t {
-    uint64_t channel;
-    std::vector<int> occupied;
-    int first;
-    int second;
-    int index;
-    bool deleted;
-    void set(int l, int r) {
-        uint64_t mask = (1ull << (r + 1)) - (1ull << l);
-#ifdef __SMZ_RUNTIME_CHECK
-        if (l <= 0 || r > k || l > r) {
-            abort();
-        }
-#endif
-        channel |= mask;
-    }
-    void clear(int l, int r) {
-        uint64_t mask = (1ull << (r + 1)) - (1ull << l);
-#ifdef __SMZ_RUNTIME_CHECK
-        if (l <= 0 || r > k || l > r) {
-            abort();
-        }
-#endif
-        channel &= ~mask;
-    }
-    bool empty(uint64_t mask) {
-        return (channel & mask) == 0;
-    }
-    void remove(int x) {
-#ifdef __SMZ_RUNTIME_CHECK
-        if (occupied.empty() || x <= 0 || x > q) {
-            abort();
-        }
-#endif
-        for (int i = 0; i < occupied.size(); ++i) {
-            if (occupied[i] == x) {
-                std::swap(occupied[i], occupied.back());
-                occupied.pop_back();
-                return;
-            }
-        }
-#ifdef __SMZ_RUNTIME_CHECK
-        abort();
-#endif
-    }
-    void insert(int x) {
-#ifdef __SMZ_RUNTIME_CHECK
-        int cnt = 0;
-        for (int i = 0; i < occupied.size(); ++i) {
-            if (occupied[i] == x) {
-                cnt += 1;
-            }
-        }
-        if (cnt > 1 || x <= 0 || x > q) {
-            abort();
-        }
-#endif
-        occupied.push_back(x);
-    }
-} edges[MAXM];
-struct query_t {
-    int from;
-    int to;
-    int l;
-    int r;
-    int value;
-    int index;
-    int span;
-    bool dead;
-    path_t path, backup;
-    static inline int64_t vis[MAXQ];
-    static inline int64_t timestamp = 1;
-    template<bool first=true, bool update=false> void apply(const path_t& new_path) const {
-        int node = from;
-        int channel = -1;
-        for (auto [e, L] : new_path) {
-            edges[e].set(L, L + span);
-            if constexpr (update) {
-                edges[e].insert(index);
-            }
-            if (channel != -1 && channel != L) {
-                if constexpr (first) {
-                    p[node] -= 1;
-                    vis[node] = timestamp;
-                }
-                else {
-                    if (vis[node] != timestamp) {
-                        p[node] -= 1;
-                    }
-                }
-            }
-#ifdef __SMZ_RUNTIME_CHECK
-            if (node != edges[e].first && node != edges[e].second) {
-                abort();
-            }
-            if (edges[e].deleted) { //p[node] < -1 || 
-                abort();
-            }
-#endif
-            node = (node != edges[e].first ? edges[e].first : edges[e].second);
-            channel = L;
-        }
-    }
-    template<bool first=true, bool update=false> void undo(const path_t& the_path) const {
-        int node = from;
-        int channel = -1;
-        for (auto [e, L] : the_path) {
-            edges[e].clear(L, L + span);
-            if constexpr (update) {
-                edges[e].remove(index);
-            }
-            if (channel != -1 && channel != L) {
-                if constexpr (first) {
-                    p[node] += 1;
-                    vis[node] = timestamp;
-                }
-                else {
-                    if (vis[node] != timestamp) {
-                        p[node] += 1;
-                    }
-                }
-            }
-#ifdef __SMZ_RUNTIME_CHECK
-            if (node != edges[e].first && node != edges[e].second) {
-                abort();
-            }
-#endif
-            node = (node != edges[e].first ? edges[e].first : edges[e].second);
-            channel = L;
-        }
-    }
-    void undo() {
-        backup = std::move(path);
-        path.clear();
-        undo(backup);
-    }
-    void redo() {
-        path = std::move(backup);
-        backup.clear();
-        apply(path);
-    }
-    void confirm(path_t&& new_path) {
-        path = std::move(new_path);
-        timestamp += 1;
-        apply<true>(path);
-        apply<false>(backup);
-    }
-    auto cancel() {
-        timestamp += 1;
-        undo<true>(backup);
-        undo<false>(path);
-        apply(backup);
-        auto ret = std::move(path);
-        path = std::move(backup);
-        return ret;
-    }
-    void replace(path_t&& new_path) {
-        undo<true, true>(path);
-        apply<true, true>(new_path);
-        path = std::move(new_path);
-    }
-    void init(const path_t& the_path) {
-        apply<true, true>(the_path);
-    }
-} query[MAXQ];
+int n, m, q;
 std::mt19937 engine;
-std::vector<std::pair<int, edge_t*>> G[MAXN];
 std::vector<std::vector<std::pair<double, int>>> pretests;
 const auto start_time = std::chrono::steady_clock::now();
+namespace io {
+    constexpr int MAXBUFFER = 1024 * 1024 * 8;
+    char ibuffer[MAXBUFFER], * iptr, obuffer[MAXBUFFER], * optr;
+    inline void start_reading() { // 开始读取新的一行
+        std::ignore = fgets(ibuffer, sizeof(ibuffer), stdin);
+        iptr = ibuffer;
+    }
+    inline void start_writing() { //开始输出新的一行
+        optr = obuffer;
+    }
+    inline int read_int() { //读入有符号整数
+        char* nxt;
+        int ret = strtol(iptr, &nxt, 10);
+        iptr = nxt;
+        return ret;
+    }
+    inline double read_double() noexcept { // 读入浮点数
+        char* nxt;
+        double ret = strtod(iptr, &nxt);
+        iptr = nxt;
+        return ret;
+    }
+    inline void write_int(int val) { //输出有符号整数，输出完一行后需要调用flush。
+        char tmp[32], * now = tmp + 20;
+        int length = 1;
+        if (val < 0) {
+            *optr++ = '-';
+            val *= -1;
+        }
+        *now = ' ';
+        do {
+            *--now = '0' + val % 10;
+            val /= 10;
+            length += 1;
+        } while (val > 0);
+        memcpy(optr, now, length);
+        optr += length;
+    }
+    inline void newline() {
+        optr[-1] = '\n';
+    }
+    inline void flush() {
+        if (optr != obuffer) {
+            optr[-1] = '\n';
+        }
+        fwrite(obuffer, 1, optr - obuffer, stdout);
+        fflush(stdout);
+    }
+}
 template<typename... T> void print(const T&... sth) {
 #ifdef __SMZ_NATIVE_TEST
     (..., (std::cerr << sth << " ")) << std::endl;
@@ -394,60 +277,184 @@ double runtime() {
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(now - start_time);
     return duration.count() / 1e6;
 }
-namespace io {
-    constexpr int MAXBUFFER = 1024 * 1024 * 8;
-    char ibuffer[MAXBUFFER], * iptr, obuffer[MAXBUFFER], * optr;
-    inline void start_reading() { // 开始读取新的一行
-        std::ignore = fgets(ibuffer, sizeof(ibuffer), stdin);
-        iptr = ibuffer;
-    }
-    inline void start_writing() { //开始输出新的一行
-        optr = obuffer;
-    }
-    inline int read_int() { //读入有符号整数
-        char* nxt;
-        int ret = strtol(iptr, &nxt, 10);
-        iptr = nxt;
-        return ret;
-    }
-    inline double read_double() noexcept { // 读入浮点数
-        char* nxt;
-        double ret = strtod(iptr, &nxt);
-        iptr = nxt;
-        return ret;
-    }
-    inline void write_int(int val) { //输出有符号整数，输出完一行后需要调用flush。
-        char tmp[32], * now = tmp + 20;
-        int length = 1;
-        if (val < 0) {
-            *optr++ = '-';
-            val *= -1;
+using path_t = std::vector<std::pair<int, int>>;
+struct edge_t {
+    uint64_t channel;
+    std::vector<int> occupied;
+    int first;
+    int second;
+    int index;
+    bool deleted;
+    void set(int l, int r) {
+        uint64_t mask = (1ull << (r + 1)) - (1ull << l);
+#ifdef __SMZ_RUNTIME_CHECK
+        if (l <= 0 || r > k || l > r) {
+            abort();
         }
-        *now = ' ';
-        do {
-            *--now = '0' + val % 10;
-            val /= 10;
-            length += 1;
-        } while (val > 0);
-        memcpy(optr, now, length);
-        optr += length;
+#endif
+        channel |= mask;
     }
-    inline void newline() {
-        optr[-1] = '\n';
-    }
-    inline void flush() {
-        if (optr != obuffer) {
-            optr[-1] = '\n';
+    void clear(int l, int r) {
+        uint64_t mask = (1ull << (r + 1)) - (1ull << l);
+#ifdef __SMZ_RUNTIME_CHECK
+        if (l <= 0 || r > k || l > r) {
+            abort();
         }
-        fwrite(obuffer, 1, optr - obuffer, stdout);
-        fflush(stdout);
+#endif
+        channel &= ~mask;
     }
-}
-namespace testcase {
+    bool empty(uint64_t mask) {
+        return (channel & mask) == 0;
+    }
+    void remove(int x) {
+#ifdef __SMZ_RUNTIME_CHECK
+        if (occupied.empty() || x <= 0 || x > q) {
+            abort();
+        }
+#endif
+        for (int i = 0; i < occupied.size(); ++i) {
+            if (occupied[i] == x) {
+                std::swap(occupied[i], occupied.back());
+                occupied.pop_back();
+                return;
+            }
+        }
+#ifdef __SMZ_RUNTIME_CHECK
+        abort();
+#endif
+    }
+    void insert(int x) {
+#ifdef __SMZ_RUNTIME_CHECK
+        int cnt = 0;
+        for (int i = 0; i < occupied.size(); ++i) {
+            if (occupied[i] == x) {
+                cnt += 1;
+            }
+        }
+        if (cnt > 1 || x <= 0 || x > q) {
+            abort();
+        }
+#endif
+        occupied.push_back(x);
+    }
+};
+struct query_t {
+    int from;
+    int to;
+    int l;
+    int r;
+    int value;
+    int index;
+    int span;
+    bool dead;
+    path_t path, backup;
+};
+struct instance_t {
+public:
     int p[MAXN];
-    std::pair<int, int> nodes[MAXM];
-    std::vector<std::tuple<int, int, int, int, int, int, std::vector<int>>> business;
-    void run() {
+    edge_t edges[MAXM];
+    query_t query[MAXQ];
+    std::vector<std::pair<int, edge_t*>> G[MAXN];
+public: //method for query_t
+    static inline int64_t vis[MAXQ];
+    static inline int64_t timestamp = 1;
+    template<bool first=true, bool update=false> void use(const query_t& qry, const path_t& new_path) {
+        int node = qry.from;
+        int channel = -1;
+        for (auto [e, L] : new_path) {
+            edges[e].set(L, L + qry.span);
+            if constexpr (update) {
+                edges[e].insert(qry.index);
+            }
+            if (channel != -1 && channel != L) {
+                if constexpr (first) {
+                    p[node] -= 1;
+                    vis[node] = timestamp;
+                }
+                else {
+                    if (vis[node] != timestamp) {
+                        p[node] -= 1;
+                    }
+                }
+            }
+    #ifdef __SMZ_RUNTIME_CHECK
+            if (node != edges[e].first && node != edges[e].second) {
+                abort();
+            }
+            if (edges[e].deleted) { //p[node] < -1 || 
+                abort();
+            }
+    #endif
+            node = (node != edges[e].first ? edges[e].first : edges[e].second);
+            channel = L;
+        }
+    }
+    template<bool first=true, bool update=false> void undo(const query_t& qry, const path_t& the_path) {
+        int node = qry.from;
+        int channel = -1;
+        for (auto [e, L] : the_path) {
+            edges[e].clear(L, L + qry.span);
+            if constexpr (update) {
+                edges[e].remove(qry.index);
+            }
+            if (channel != -1 && channel != L) {
+                if constexpr (first) {
+                    p[node] += 1;
+                    vis[node] = timestamp;
+                }
+                else {
+                    if (vis[node] != timestamp) {
+                        p[node] += 1;
+                    }
+                }
+            }
+    #ifdef __SMZ_RUNTIME_CHECK
+            if (node != edges[e].first && node != edges[e].second) {
+                abort();
+            }
+    #endif
+            node = (node != edges[e].first ? edges[e].first : edges[e].second);
+            channel = L;
+        }
+    }
+    void undo(query_t& qry) {
+        qry.backup = std::move(qry.path);
+        qry.path.clear();
+        undo(qry, qry.backup);
+    }
+    void redo(query_t& qry) {
+        qry.path = std::move(qry.backup);
+        qry.backup.clear();
+        use(qry, qry.path);
+    }
+    void confirm(query_t& qry, path_t&& new_path) {
+        qry.path = std::move(new_path);
+        timestamp += 1;
+        use<true>(qry, qry.path);
+        use<false>(qry, qry.backup);
+    }
+    auto cancel(query_t& qry) {
+        timestamp += 1;
+        undo<true>(qry, qry.backup);
+        undo<false>(qry, qry.path);
+        use(qry, qry.backup);
+        auto ret = std::move(qry.path);
+        qry.path = std::move(qry.backup);
+        return ret;
+    }
+    void replace(query_t& qry, path_t&& new_path) {
+        undo<true, true>(qry, qry.path);
+        use<true, true>(qry, new_path);
+        qry.path = std::move(new_path);
+    }
+    void init(query_t& qry, const path_t& the_path) {
+        use<true, true>(qry, the_path);
+    }
+public: //method for managing testcase
+    static inline int input_p[MAXN];
+    static inline std::pair<int, int> nodes[MAXM];
+    static inline std::vector<std::tuple<int, int, int, int, int, int, std::vector<int>>> business;
+    static void read() {
         io::start_reading();
         ::n = io::read_int();
         ::m = io::read_int();
@@ -458,9 +465,9 @@ namespace testcase {
         #endif
         io::start_reading();
         for (int i = 1; i <= n; ++i) {
-            p[i] = io::read_int();
+            input_p[i] = io::read_int();
             #ifdef __SMZ_RUNTIME_CHECK
-            if (p[i] < 0 || p[i] > 20) {
+            if (input_p[i] < 0 || input_p[i] > 20) {
                 abort();
             }
             #endif
@@ -510,10 +517,10 @@ namespace testcase {
         static int64_t id = 0;
         if (id) {
             for (int i = 1; i <= q; ++i) {
-                query[i].undo();
+                undo(query[i]);
             }
             for (int i = 1; i <= n; ++i) {
-                if (p[i] != ::p[i]) {
+                if (p[i] != input_p[i]) {
                     abort();
                 }
             }
@@ -526,49 +533,48 @@ namespace testcase {
         id += 1;
         #endif
         for (int i = 1; i <= n; ++i) {
-            ::p[i] = p[i];
+            p[i] = input_p[i];
         }
         for (int i = 1; i <= n; ++i) {
-            ::G[i].clear();
+            G[i].clear();
         }
         for (int i = 1; i <= m; ++i) {
             auto [x, y] = nodes[i];
-            ::edges[i] = {};
-            ::edges[i].first = x;
-            ::edges[i].second = y;
-            ::edges[i].index = i;
-            ::edges[i].deleted = false;
-            ::G[x].emplace_back(y, &::edges[i]);
-            ::G[y].emplace_back(x, &::edges[i]);
+            edges[i] = {};
+            edges[i].first = x;
+            edges[i].second = y;
+            edges[i].index = i;
+            edges[i].deleted = false;
+            G[x].emplace_back(y, &edges[i]);
+            G[y].emplace_back(x, &edges[i]);
         }
         for (int i = 1; i <= business.size(); ++i) {
             const auto& [s, t, _, L, R, V, E] = business[i - 1];
-            ::query[i].from = s;
-            ::query[i].to = t;
-            ::query[i].l = L;
-            ::query[i].r = R;
-            ::query[i].value = V;
-            ::query[i].index = i;
-            ::query[i].span = R - L;
-            ::query[i].dead = false;
-            ::query[i].path.clear();
-            ::query[i].backup.clear();
+            query[i].from = s;
+            query[i].to = t;
+            query[i].l = L;
+            query[i].r = R;
+            query[i].value = V;
+            query[i].index = i;
+            query[i].span = R - L;
+            query[i].dead = false;
+            query[i].path.clear();
+            query[i].backup.clear();
             for (auto e : E) {
-                ::query[i].path.emplace_back(e, L);
+                query[i].path.emplace_back(e, L);
             }
-            ::query[i].init(::query[i].path);
+            init(query[i], query[i].path);
         }
     }
-}
-namespace search {
-    int first_vis[MAXN];
-    int64_t last[MAXQ], visit[MAXN][MAXK], timestamp = 1;
-    int dist[MAXN][MAXK], same[MAXN][MAXK];
-    std::tuple<int, int, int> father[MAXN][MAXK];
-    std::bitset<MAXN> state[MAXN][MAXK];
-    deque_t<int, MAXN * MAXK * 4> A, B1, B2, C;
-    queue_t<int, MAXN> Q;
-    int baseline[MAXN][MAXN];
+public: //method for searching
+    static inline int first_vis[MAXN];
+    static inline int64_t last[MAXQ], visit[MAXN][MAXK];
+    static inline int dist[MAXN][MAXK], same[MAXN][MAXK];
+    static inline std::tuple<int, int, int> father[MAXN][MAXK];
+    static inline std::bitset<MAXN> state[MAXN][MAXK];
+    static inline deque_t<int, MAXN * MAXK * 4> A, B1, B2, C;
+    static inline queue_t<int, MAXN> Q;
+    static inline int baseline[MAXN][MAXN];
     inline void preprocess(std::vector<int> deleted) {
         std::sort(deleted.begin(), deleted.end());
         auto iter = std::unique(deleted.begin(), deleted.end());
@@ -805,197 +811,200 @@ namespace search {
         std::reverse(path.begin(), path.end());
         return path;
     }
-}
-template<bool once=true, bool is_baseline=false> std::vector<int> solve(int e) {
-    int s = edges[e].first, t = edges[e].second;
-    for (int i = 0; i < G[s].size(); ++i) {
-        if (G[s][i].second->index == e) {
-            G[s].erase(G[s].begin() + i);
-            break;
-        }
-    }
-    std::swap(s, t);
-    for (int i = 0; i < G[s].size(); ++i) {
-        if (G[s][i].second->index == e) {
-            G[s].erase(G[s].begin() + i);
-            break;
-        }
-    }
-    std::vector<int> deleted = edges[e].occupied;
-#ifdef __SMZ_RUNTIME_CHECK
-    for (int i = 0; i < deleted.size(); ++i) {
-        for (int j = 0; j < i; ++j) {
-            if (deleted[i] == deleted[j]) {
-                abort();
-            }
-        }
-    }
-#endif
-    auto iter = std::remove_if(deleted.begin(), deleted.end(), [](int i) {
-        return query[i].dead;
-    });
-    deleted.erase(iter, deleted.end());
-    if constexpr (is_baseline) {
-        std::sort(deleted.begin(), deleted.end(), [](int x, int y) {
-            return query[x].value < query[y].value;
-        });
-    }
-    else {
-        std::sort(deleted.begin(), deleted.end(), [](int x, int y) {
-            if (query[x].value != query[y].value)
-                return query[x].value > query[y].value;
-            return query[x].index > query[y].index;
-        });
-        search::preprocess(deleted);
-    }
-    std::tuple<int64_t, int64_t> best{std::numeric_limits<int64_t>::max(), std::numeric_limits<int64_t>::max()};
-    std::vector<std::pair<int, path_t>> answer;
-    std::vector<int> order;
-    auto proc = [&](const std::vector<int>& indices) {
-        int64_t loss = 0, length = 0;
-        std::vector<int> updated;
-        updated.reserve(indices.size());
-        for (auto i : indices) {
-            auto c = query[i].path.back().second;
-            query[i].undo();
-            ::iterations += 1;
-            path_t new_path;
-            if constexpr (is_baseline) {
-                new_path = search::bfs(query[i], c);
-            }else{
-                new_path = search::astar(query[i]);
-            }
-            
-#ifdef __SMZ_RUNTIME_CHECK
-            int node = query[i].from;
-            std::vector<int> nodes(1, node);
-            for (int i = 0; i < new_path.size(); ++i) {
-                const auto [e, _] = new_path[i];
-                if (p[node] < -1) {
-                    abort();
-                }
-                if (node != edges[e].first && node != edges[e].second) {
-                    abort();
-                }
-                node = (node != edges[e].first ? edges[e].first : edges[e].second);
-                for (auto x : nodes) {
-                    if (x == node) {
-                        abort();
-                    }
-                }
-                nodes.push_back(node);
-                for (int j = 0; j < i; ++j) {
-                    if (new_path[i].first == new_path[j].first) {
-                        abort();
-                    }
-                }
-            }
-            if (new_path.size() && node != query[i].to) {
-                abort();
-            }
-            if (query[i].dead) {
-                abort();
-            }
-#endif
-            if (new_path.empty()) {
-                loss += query[i].value;
-                query[i].redo();
-            }
-            else {
-                length += new_path.size() * (query[i].span + 1);
-                query[i].confirm(std::move(new_path));
-                updated.push_back(i);
-            }
-            if (std::make_tuple(loss, length) >= best) {
+public: //method for solving
+    template<bool once=true, bool is_baseline=false> std::vector<int> solve(int e) {
+        int s = edges[e].first, t = edges[e].second;
+        for (int i = 0; i < G[s].size(); ++i) {
+            if (G[s][i].second->index == e) {
+                G[s].erase(G[s].begin() + i);
                 break;
             }
         }
-        std::vector<std::pair<int, path_t>> result;
-        result.reserve(updated.size());
-        for (auto i : updated) {
-            auto new_path = query[i].cancel();
-            result.emplace_back(i, std::move(new_path));
-        }
-        std::tuple<int64_t, int64_t> now{loss, length};
-        if (now < best) {
-            best = now;
-            answer = std::move(result);
-            order = indices;
-        }
-    };
-    const double base = runtime();
-    const double time_limit = base + (MAXTIME - base) / num_operations;
-    if constexpr (once) {
-        proc(deleted);
-    }
-    else {
-        if (deleted.size() <= 3) {
-            std::vector<int> permutation;
-            for (int i = 0; i < deleted.size(); ++i) {
-                permutation.push_back(i);
+        std::swap(s, t);
+        for (int i = 0; i < G[s].size(); ++i) {
+            if (G[s][i].second->index == e) {
+                G[s].erase(G[s].begin() + i);
+                break;
             }
-            do {
-                std::vector<int> indices;
-                for (auto i : permutation) {
-                    indices.push_back(deleted[i]);
+        }
+        std::vector<int> deleted = edges[e].occupied;
+    #ifdef __SMZ_RUNTIME_CHECK
+        for (int i = 0; i < deleted.size(); ++i) {
+            for (int j = 0; j < i; ++j) {
+                if (deleted[i] == deleted[j]) {
+                    abort();
                 }
-                proc(indices);
-            } while (runtime() < time_limit && std::next_permutation(permutation.begin(), permutation.end()));
+            }
+        }
+    #endif
+        auto iter = std::remove_if(deleted.begin(), deleted.end(), [this](int i) {
+            return query[i].dead;
+        });
+        deleted.erase(iter, deleted.end());
+        if constexpr (is_baseline) {
+            std::sort(deleted.begin(), deleted.end(), [this](int x, int y) {
+                return query[x].value < query[y].value;
+            });
         }
         else {
-            proc(deleted);
-            std::bernoulli_distribution bernoulli(std::pow(deleted.size(), -1.0 / 3));
-            while (runtime() < time_limit) {
-                std::vector<int> indices = order;
-                for (int i = 1; i < indices.size(); ++i) if (bernoulli(engine)) {
-                    int j = std::rand() % i;
-                    std::swap(indices[i], indices[j]);
+            std::sort(deleted.begin(), deleted.end(), [this](int x, int y) {
+                if (query[x].value != query[y].value)
+                    return query[x].value > query[y].value;
+                return query[x].index > query[y].index;
+            });
+            preprocess(deleted);
+        }
+        std::tuple<int64_t, int64_t> best{std::numeric_limits<int64_t>::max(), std::numeric_limits<int64_t>::max()};
+        std::vector<std::pair<int, path_t>> answer;
+        std::vector<int> order;
+        auto proc = [&](const std::vector<int>& indices) {
+            int64_t loss = 0, length = 0;
+            std::vector<int> updated;
+            updated.reserve(indices.size());
+            for (auto i : indices) {
+                auto c = query[i].path.back().second;
+                undo(query[i]);
+                ::iterations += 1;
+                path_t new_path;
+                if constexpr (is_baseline) {
+                    new_path = bfs(query[i], c);
+                }else{
+                    new_path = astar(query[i]);
                 }
-                proc(indices);
+                
+    #ifdef __SMZ_RUNTIME_CHECK
+                int node = query[i].from;
+                std::vector<int> nodes(1, node);
+                for (int i = 0; i < new_path.size(); ++i) {
+                    const auto [e, _] = new_path[i];
+                    if (p[node] < -1) {
+                        abort();
+                    }
+                    if (node != edges[e].first && node != edges[e].second) {
+                        abort();
+                    }
+                    node = (node != edges[e].first ? edges[e].first : edges[e].second);
+                    for (auto x : nodes) {
+                        if (x == node) {
+                            abort();
+                        }
+                    }
+                    nodes.push_back(node);
+                    for (int j = 0; j < i; ++j) {
+                        if (new_path[i].first == new_path[j].first) {
+                            abort();
+                        }
+                    }
+                }
+                if (new_path.size() && node != query[i].to) {
+                    abort();
+                }
+                if (query[i].dead) {
+                    abort();
+                }
+    #endif
+                if (new_path.empty()) {
+                    loss += query[i].value;
+                    redo(query[i]);
+                }
+                else {
+                    length += new_path.size() * (query[i].span + 1);
+                    confirm(query[i], std::move(new_path));
+                    updated.push_back(i);
+                }
+                if (std::make_tuple(loss, length) >= best) {
+                    break;
+                }
+            }
+            std::vector<std::pair<int, path_t>> result;
+            result.reserve(updated.size());
+            for (auto i : updated) {
+                auto new_path = cancel(query[i]);
+                result.emplace_back(i, std::move(new_path));
+            }
+            std::tuple<int64_t, int64_t> now{loss, length};
+            if (now < best) {
+                best = now;
+                answer = std::move(result);
+                order = indices;
+            }
+        };
+        const double base = runtime();
+        const double time_limit = base + (MAXTIME - base) / num_operations;
+        if constexpr (once) {
+            proc(deleted);
+        }
+        else {
+            if (deleted.size() <= 3) {
+                std::vector<int> permutation;
+                for (int i = 0; i < deleted.size(); ++i) {
+                    permutation.push_back(i);
+                }
+                do {
+                    std::vector<int> indices;
+                    for (auto i : permutation) {
+                        indices.push_back(deleted[i]);
+                    }
+                    proc(indices);
+                } while (runtime() < time_limit && std::next_permutation(permutation.begin(), permutation.end()));
+            }
+            else {
+                proc(deleted);
+                std::bernoulli_distribution bernoulli(std::pow(deleted.size(), -1.0 / 3));
+                while (runtime() < time_limit) {
+                    std::vector<int> indices = order;
+                    for (int i = 1; i < indices.size(); ++i) if (bernoulli(engine)) {
+                        int j = std::rand() % i;
+                        std::swap(indices[i], indices[j]);
+                    }
+                    proc(indices);
+                }
             }
         }
-    }
-    
-    static uint64_t flag[MAXQ], timestamp = 1;
-    timestamp += 1;
-    std::vector<int> ret;
-    for (auto iter = answer.begin(); iter != answer.end(); ++iter) {
-        auto [i, new_path] = std::move(*iter);
-        flag[i] = timestamp;
-        ret.push_back(i);
-        query[i].replace(std::move(new_path));
-    }
-    for (auto i : deleted) {
-        if (flag[i] != timestamp) {
-            query[i].dead = true;
+        
+        static uint64_t flag[MAXQ], timestamp = 1;
+        timestamp += 1;
+        std::vector<int> ret;
+        for (auto iter = answer.begin(); iter != answer.end(); ++iter) {
+            auto [i, new_path] = std::move(*iter);
+            flag[i] = timestamp;
+            ret.push_back(i);
+            replace(query[i], std::move(new_path));
         }
-    }
-#ifdef __SMZ_RUNTIME_CHECK
-    for (auto i : ret) {
-        if (query[i].dead) {
+        for (auto i : deleted) {
+            if (flag[i] != timestamp) {
+                query[i].dead = true;
+            }
+        }
+    #ifdef __SMZ_RUNTIME_CHECK
+        for (auto i : ret) {
+            if (query[i].dead) {
+                abort();
+            }
+        }
+        for (int i = 1; i <= q; ++i) if (!query[i].dead) {
+            std::unordered_set<int> S;
+            for (auto [e, c] : query[i].path) {
+                S.insert(e);
+                if (std::count(edges[e].occupied.begin(), edges[e].occupied.end(), i) != 1) {
+                    abort();
+                }
+            }
+            for (int e = 1; e <= m; ++e) if (!S.count(e)) {
+                if (std::count(edges[e].occupied.begin(), edges[e].occupied.end(), i) > 0) {
+                    abort();
+                }
+            }
+        }
+        for (int i = 1; i <= n; ++i) if (p[i] < 0) {
             abort();
         }
+    #endif
+        return ret;
     }
-    for (int i = 1; i <= q; ++i) if (!query[i].dead) {
-        std::unordered_set<int> S;
-        for (auto [e, c] : query[i].path) {
-            S.insert(e);
-            if (std::count(edges[e].occupied.begin(), edges[e].occupied.end(), i) != 1) {
-                abort();
-            }
-        }
-        for (int e = 1; e <= m; ++e) if (!S.count(e)) {
-            if (std::count(edges[e].occupied.begin(), edges[e].occupied.end(), i) > 0) {
-                abort();
-            }
-        }
-    }
-    for (int i = 1; i <= n; ++i) if (p[i] < 0) {
-        abort();
-    }
-#endif
-    return ret;
-}
+} master;
+
+
 void generate() { //输出瓶颈断边场景的交互部分
     static int64_t visit[MAXM];
     static int64_t timestamp = 1;
@@ -1023,10 +1032,10 @@ void generate() { //输出瓶颈断边场景的交互部分
         }
         return true;
     };
-    testcase::start();
+    master.start();
     long long total = 0;
     for (int j = 1; j <= q; ++j) {
-        total += query[j].value;
+        total += master.query[j].value;
     }
     std::vector<int> indices;
     for (int i = 1; i <= m; ++i) {
@@ -1114,23 +1123,23 @@ void generate() { //输出瓶颈断边场景的交互部分
         if (deleted.size() > MAXC) {
             deleted.resize(MAXC);
         }
-        testcase::start();
+        master.start();
         for (int j = 0; j < deleted.size(); ++j) {
             int e = deleted[j].second;
-            solve<true, false>(e);
+            master.solve<true, false>(e);
             double rest = 0;
-            for (int j = 1; j <= q; ++j) if (!query[j].dead) {
-                rest += query[j].value;
+            for (int j = 1; j <= q; ++j) if (!master.query[j].dead) {
+                rest += master.query[j].value;
             }
             deleted[j].first = rest * 10000.0 / total;
         }
-        testcase::start();
+        master.start();
         for (int j = 0; j < deleted.size(); ++j) {
             int e = deleted[j].second;
-            solve<true, true>(e);
+            master.solve<true, true>(e);
             double rest = 0;
-            for (int j = 1; j <= q; ++j) if (!query[j].dead) {
-                rest += query[j].value;
+            for (int j = 1; j <= q; ++j) if (!master.query[j].dead) {
+                rest += master.query[j].value;
             }
             deleted[j].first -= rest * 10000.0 / total;
         }
@@ -1206,10 +1215,10 @@ void generate() { //输出瓶颈断边场景的交互部分
 }
 int main() { // 244843 368043 45675.1(43761.6)
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("smz.in", "r", stdin);
+    std::ignore = freopen("testcase2.in", "r", stdin);
     std::ignore = freopen("output.txt", "w", stdout);
 #endif
-    testcase::run();
+    instance_t::read();
     generate();
     //输出瓶颈断边场景的交互部分
     io::start_reading();
@@ -1223,12 +1232,12 @@ int main() { // 244843 368043 45675.1(43761.6)
     #endif
     double score = 0;
     while (T) {
-        testcase::start();
+        master.start();
         std::vector<std::pair<double, int>> data;
 #ifdef __SMZ_NATIVE_TEST
         uint64_t total = 0, rest = 0;
         for (int i = 1; i <= q; ++i) {
-            total += query[i].value;
+            total += master.query[i].value;
         }
         if (idx < pretests.size()) {
             data = pretests[idx];
@@ -1253,29 +1262,29 @@ int main() { // 244843 368043 45675.1(43761.6)
             if (e == -1) {
                 break;
             }
-            auto indices = solve(e);
+            auto indices = master.solve(e);
             io::start_writing();
             io::write_int((int)indices.size());
             io::newline();
             for (auto i : indices) {
                 io::write_int(i);
-                io::write_int((int)query[i].path.size());
+                io::write_int((int)master.query[i].path.size());
                 io::newline();
-                for (auto [e, c] : query[i].path) {
+                for (auto [e, c] : master.query[i].path) {
                     io::write_int(e);
                     io::write_int(c);
-                    io::write_int(c + query[i].span);
+                    io::write_int(c + master.query[i].span);
                 }
                 io::newline();
             }
             io::flush();
-            edges[e].deleted = true;
+            master.edges[e].deleted = true;
             num_operations -= 1;
         }
         T -= 1;
 #ifdef __SMZ_NATIVE_TEST
-        for (int i = 1; i <= q; ++i) if (!query[i].dead) {
-            rest += query[i].value;
+        for (int i = 1; i <= q; ++i) if (!master.query[i].dead) {
+            rest += master.query[i].value;
         }
         score += rest * 10000.0 / total;
         idx += 1;
