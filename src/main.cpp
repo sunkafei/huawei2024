@@ -1165,20 +1165,12 @@ void generate() { //输出瓶颈断边场景的交互部分
         slave.start();
         for (int j = 0; j < deleted.size(); ++j) {
             int e = deleted[j].second;
-            auto transaction = master.solve<true, false>(e);
-            master.commmit(std::move(transaction));
-            double rest = 0;
-            for (int j = 1; j <= q; ++j) if (!master.query[j].dead) {
-                rest += master.query[j].value;
-            }
-            deleted[j].first = rest * 10000.0 / total;
-            transaction = slave.solve<true, true>(e);
-            slave.commmit(std::move(transaction));
-            rest = 0;
-            for (int j = 1; j <= q; ++j) if (!slave.query[j].dead) {
-                rest += slave.query[j].value;
-            }
-            deleted[j].first -= rest * 10000.0 / total;
+            auto master_transaction = master.solve<true, false>(e);
+            auto slave_transaction = slave.solve<true, true>(e);
+            auto increment = slave_transaction.loss - master_transaction.loss;
+            deleted[j].first = increment * 10000.0 / total + (j == 0 ? 0.0 : deleted[j - 1].first);
+            master.commmit(std::move(master_transaction));
+            slave.commmit(std::move(slave_transaction));
         }
         int mx = 0;
         int delta = deleted[0].first;
