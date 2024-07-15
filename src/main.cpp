@@ -1102,7 +1102,7 @@ void generate() { //输出瓶颈断边场景的交互部分
         if (now > MAXGENTIME) {
             break;
         }
-        std::vector<std::pair<double, int>> deleted;
+        std::vector<std::pair<double, int>> state;
         timestamp += 1;
         while (queue.size() > 1 && std::get<1>(queue.top()) <= 0) {
             cases.push_back(std::get<2>(queue.top()));
@@ -1110,32 +1110,32 @@ void generate() { //输出瓶颈断边场景的交互部分
         }
         auto& [_, cnt, best] = queue.top();
         const_cast<int&>(cnt) -= 1;
-        deleted = best;
-        for (int i = (int)deleted.size() - 1; i >= 1; --i) {
-            deleted[i].first = deleted[i].first - deleted[i - 1].first + eps(engine);
+        state = best;
+        for (int i = (int)state.size() - 1; i >= 1; --i) {
+            state[i].first = state[i].first - state[i - 1].first + eps(engine);
         }
-        std::vector<int> order(deleted.size());
-        for (int i = 0; i < deleted.size(); ++i) {
+        std::vector<int> order(state.size());
+        for (int i = 0; i < state.size(); ++i) {
             order[i] = i;
         }
         std::sort(order.begin(), order.end(), [&](int x, int y) {
-            return deleted[x].first < deleted[y].first;
+            return state[x].first < state[y].first;
         });
-        int r = std::max(std::sqrt(deleted.size()), 1.0);
+        int r = std::max(std::sqrt(state.size()), 1.0);
         for (int i = 0; i < r; ++i) {
-            deleted[order[i]].second = -1;
+            state[order[i]].second = -1;
         }
-        auto iter = std::remove_if(deleted.begin(), deleted.end(), [](auto pair) {
+        auto iter = std::remove_if(state.begin(), state.end(), [](auto pair) {
             return pair.second == -1;
         });
-        deleted.erase(iter, deleted.end());
+        state.erase(iter, state.end());
         std::shuffle(indices.begin(), indices.end(), engine);
-        for (auto [v, i] : deleted) {
+        for (auto [v, i] : state) {
             visit[i] = timestamp;
         }
         for (auto i : indices) if (visit[i] != timestamp) {
-            deleted.emplace_back(0, i);
-            if (deleted.size() >= MAXC) {
+            state.emplace_back(0, i);
+            if (state.size() >= MAXC) {
                 break;
             }
         }
@@ -1145,44 +1145,49 @@ void generate() { //输出瓶颈断边场景的交互部分
         for (int i = 0; i < MAXC; ++i) {
             position[i].clear();
         }
-        for (int i = (int)deleted.size() - 1; i >= 0; --i) {
+        for (int i = (int)state.size() - 1; i >= 0; --i) {
             int j = i;
             if (bernoulli(engine)) {
                 j = uniform(engine);
             }
-            position[j].push_back(deleted[i].second);
+            position[j].push_back(state[i].second);
         }
-        deleted.clear();
+        state.clear();
         for (int i = 0; i < MAXC; ++i) {
             for (auto j : position[i]) {
-                deleted.emplace_back(0.0, j);
+                state.emplace_back(0.0, j);
             }
         }
-        if (deleted.size() > MAXC) {
-            deleted.resize(MAXC);
+        if (state.size() > MAXC) {
+            state.resize(MAXC);
         }
         master.start();
         slave.start();
-        for (int j = 0; j < deleted.size(); ++j) {
-            int e = deleted[j].second;
+        std::vector<std::pair<double, int>> new_state;
+        new_state.reserve(state.size());
+        for (auto [_, e] : state) {
             auto master_transaction = master.solve<true, false>(e);
             auto slave_transaction = slave.solve<true, true>(e);
             auto increment = slave_transaction.loss - master_transaction.loss;
-            deleted[j].first = increment * 10000.0 / total + (j == 0 ? 0.0 : deleted[j - 1].first);
+            if (increment < 0) {
+                continue;
+            }
+            auto value = increment * 10000.0 / total + (new_state.empty() ? 0.0 : new_state.back().first);
+            new_state.emplace_back(value, e);
             master.commmit(std::move(master_transaction));
             slave.commmit(std::move(slave_transaction));
         }
         int mx = 0;
-        int delta = deleted[0].first;
-        for (int j = 0; j < deleted.size(); ++j) {
-            auto d = deleted[j].first;
+        int delta = new_state[0].first;
+        for (int j = 0; j < new_state.size(); ++j) {
+            auto d = new_state[j].first;
             if (d > delta) {
                 delta = d;
                 mx = j;
             }
         }
-        deleted.resize(mx + 1);
-        queue.emplace(deleted.back().first, DEGREE, std::move(deleted));
+        new_state.resize(mx + 1);
+        queue.emplace(new_state.back().first, DEGREE, std::move(new_state));
     }
     while (queue.size()) {
         cases.push_back(std::get<2>(queue.top()));
@@ -1242,9 +1247,9 @@ void generate() { //输出瓶颈断边场景的交互部分
     print("Score different: ", sum);
     #endif
 }
-int main() { // 254484 369234 43847.1
+int main() { // 250314 394894 46118.6
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("testcase2.in", "r", stdin);
+    std::ignore = freopen("smz.in", "r", stdin);
     std::ignore = freopen("output.txt", "w", stdout);
 #endif
     instance_t::read();
