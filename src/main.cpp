@@ -726,6 +726,104 @@ namespace search {
         std::reverse(path.begin(), path.end());
         return path;
     }
+
+    path_t dij(const query_t& qry) noexcept {
+        timestamp += 2;
+        std::priority_queue <std::pair <std::pair <std::pair <int, int>, int>, std::pair <int, int> > > queue;
+        for (int i = 1; i <= n; ++i) {
+            first_vis[i] = false;
+        }
+        for (int j = 1; j + qry.span <= k; ++j) {
+            visit[qry.from][j] = timestamp;
+            same[qry.from][j] = 0;
+            dist[qry.from][j] = 0;
+            state[qry.from][j].reset();
+            state[qry.from][j].set(qry.from);
+            queue.push({{{0, 0}, j}, {qry.from, j}});
+        }
+        int channel = -1;
+        while (!queue.empty()) {
+            auto [_, B] = queue.top();
+            auto [x, i] = B;
+            queue.pop();
+            if (x == qry.to) [[unlikely]] {
+                channel = i;
+                break;
+            }
+            if (visit[x][i] > timestamp) continue;
+            if (p[x] > 0 && !first_vis[x]) {
+                first_vis[x] = true;
+                for (int j = 1; j + qry.span <= k; ++j) {
+                    if (visit[x][j] < timestamp || dist[x][j] > dist[x][i]) {
+                        visit[x][j] = timestamp;
+                        same[x][j] = same[x][i] + 1;
+                        dist[x][j] = dist[x][i];
+                        state[x][j] = state[x][i];
+                        father[x][j] = {x, i, -1};
+                        queue.push({{{-dist[x][j], -same[x][j]}, j}, {x, j}});
+                    }else if(dist[x][j] == dist[x][i] && same[x][j] > same[x][i] + 1){
+                        same[x][j] = same[x][i] + 1;
+                        dist[x][j] = dist[x][i];
+                        state[x][j] = state[x][i];
+                        father[x][j] = {x, i, -1};
+                        queue.push({{{-dist[x][j], -same[x][j]}, j}, {x, j}});
+                    }else if(dist[x][j] == dist[x][i] && same[x][j] == same[x][i] + 1 && j > i){
+                        same[x][j] = same[x][i] + 1;
+                        dist[x][j] = dist[x][i];
+                        state[x][j] = state[x][i];
+                        father[x][j] = {x, i, -1};
+                        queue.push({{{-dist[x][j], -same[x][j]}, j}, {x, j}});
+                    }
+                    
+                }
+            }
+            visit[x][i] = timestamp + 1;
+            const uint64_t mask = (1ull << (i + qry.span + 1)) - (1ull << i);
+            for (auto [y, info] : G[x]) {
+                if (!info->empty(mask)) {
+                    continue;
+                }
+                if (state[x][i].test(y)) [[unlikely]] {
+                    continue;
+                }
+                if (visit[y][i] < timestamp || dist[y][i] > dist[x][i] + 1) {
+                    visit[y][i] = timestamp;
+                    same[y][i] = same[x][i];
+                    dist[y][i] = dist[x][i] + 1;
+                    state[y][i] = state[x][i];
+                    state[y][i].set(y);
+                    queue.push({{{-dist[y][i], -same[y][i]}, i}, {y, i}});
+                    father[y][i] = {x, std::get<0>(father[x][i]) == x ? std::get<1>(father[x][i]) : i, info->index};
+                }
+                else if (dist[y][i] == dist[x][i] + 1 && same[y][i] > same[x][i]) {
+                    same[y][i] = same[x][i];
+                    state[y][i] = state[x][i];
+                    state[y][i].set(y);
+                    queue.push({{{-dist[y][i], -same[y][i]}, i}, {y, i}});
+                    father[y][i] = {x, std::get<0>(father[x][i]) == x ? std::get<1>(father[x][i]) : i, info->index};
+                }
+            }
+        }
+        if (channel == -1) {
+            return {};
+        }
+        path_t path;
+        int node = qry.to;
+        while (node != qry.from) {
+            auto [prev_node, prev_channel, e] = father[node][channel];
+            path.emplace_back(e, channel);
+            node = prev_node;
+            channel = prev_channel;
+            #ifdef __SMZ_RUNTIME_CHECK
+            if (node <= 0 || p[node] < -1 || node > n || channel <= 0 || channel > k) {
+                abort();
+            }
+            #endif
+        }
+        std::reverse(path.begin(), path.end());
+        return path;
+    }
+
     path_t bfs(const query_t& qry, int start_c=1) {
         timestamp += 2;
         int channel = -1;
@@ -891,7 +989,8 @@ template<bool once=true, bool is_baseline=false> std::vector<int> solve(int e) {
             if constexpr (is_baseline) {
                 new_path = search::bfs(query[i], c);
             }else{
-                new_path = search::astar(query[i]);
+                // new_path = search::astar(query[i]);
+                new_path = search::dij(query[i]);
             }
             
 #ifdef __SMZ_RUNTIME_CHECK
@@ -1025,6 +1124,10 @@ template<bool once=true, bool is_baseline=false> std::vector<int> solve(int e) {
     return ret;
 }
 void generate() { //输出瓶颈断边场景的交互部分
+    io::start_writing();
+    io::write_int(0);
+    io::flush();
+    return;
     static int64_t visit[MAXM];
     static int64_t timestamp = 1;
     auto check = [](const auto& deleted) {
@@ -1234,7 +1337,7 @@ void generate() { //输出瓶颈断边场景的交互部分
 }
 int main() { // 244843 368043 45675.1(43761.6)
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("smz.in", "r", stdin);
+    std::ignore = freopen("testcase2.in", "r", stdin);
     std::ignore = freopen("output.txt", "w", stdout);
 #endif
     testcase::run();
@@ -1243,12 +1346,12 @@ int main() { // 244843 368043 45675.1(43761.6)
     io::start_reading();
     int T = io::read_int();
     int idx = 0;
-    #ifdef __SMZ_NATIVE_TEST
-    T += pretests.size();
-    if (pretests.empty()) {
-        abort();
-    }
-    #endif
+    // #ifdef __SMZ_NATIVE_TEST
+    // T += pretests.size();
+    // if (pretests.empty()) {
+    //     abort();
+    // }
+    // #endif
     double score = 0;
     while (T) {
         testcase::start();
