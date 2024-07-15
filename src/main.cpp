@@ -1133,11 +1133,8 @@ void generate() { //输出瓶颈断边场景的交互部分
         for (auto [v, i] : state) {
             visit[i] = timestamp;
         }
-        for (auto i : indices) if (visit[i] != timestamp) {
-            state.emplace_back(0, i);
-            if (state.size() >= MAXC) {
-                break;
-            }
+        while (state.size() < MAXC) {
+            state.emplace_back(0, -1);
         }
         //constexpr double probability = (1 - MAXJACCARD) / (1 + MAXJACCARD);
         std::bernoulli_distribution bernoulli(1.0 / r);
@@ -1165,18 +1162,47 @@ void generate() { //输出瓶颈断边场景的交互部分
         slave.start();
         std::vector<std::pair<double, int>> new_state;
         new_state.reserve(state.size());
+        int idx = 0;
         for (auto [_, e] : state) {
-            auto master_transaction = master.solve<true, false>(e);
-            auto slave_transaction = slave.solve<true, true>(e);
-            auto increment = slave_transaction.loss - master_transaction.loss;
-            if (increment < 0) {
-                continue;
+            if (e > 0) {
+                auto master_transaction = master.solve<true, false>(e);
+                auto slave_transaction = slave.solve<true, true>(e);
+                auto increment = slave_transaction.loss - master_transaction.loss;
+                auto value = increment * 10000.0 / total + (new_state.empty() ? 0.0 : new_state.back().first);
+                new_state.emplace_back(value, e);
+                master.commmit(std::move(master_transaction));
+                slave.commmit(std::move(slave_transaction));
+                visit[e] = timestamp;
             }
-            auto value = increment * 10000.0 / total + (new_state.empty() ? 0.0 : new_state.back().first);
-            new_state.emplace_back(value, e);
-            master.commmit(std::move(master_transaction));
-            slave.commmit(std::move(slave_transaction));
+            else {
+                int64_t best = std::numeric_limits<int64_t>::min();
+                int edge = -1;
+                std::array<transaction_t, 2> save;
+                for (int i = 0; i < 2; ++i) {
+                    int e;
+                    do {
+                        e = indices[idx++];
+                        if (idx == indices.size()) {
+                            goto finish;
+                        }
+                    } while (visit[e] == timestamp);
+                    auto master_transaction = master.solve<true, false>(e);
+                    auto slave_transaction = slave.solve<true, true>(e);
+                    auto increment = slave_transaction.loss - master_transaction.loss;
+                    if (increment > best) {
+                        best = increment;
+                        edge = e;
+                        save = {master_transaction, slave_transaction};
+                    }
+                }
+                auto value = best * 10000.0 / total + (new_state.empty() ? 0.0 : new_state.back().first);
+                new_state.emplace_back(value, edge);
+                master.commmit(std::move(save[0]));
+                slave.commmit(std::move(save[1]));
+                visit[edge] = timestamp;
+            }
         }
+        finish:
         int mx = 0;
         int delta = new_state[0].first;
         for (int j = 0; j < new_state.size(); ++j) {
@@ -1247,7 +1273,7 @@ void generate() { //输出瓶颈断边场景的交互部分
     print("Score different: ", sum);
     #endif
 }
-int main() { // 250314 394894 46118.6
+int main() { // 250179 390000 46567.2
 #ifdef __SMZ_NATIVE_TEST
     std::ignore = freopen("smz.in", "r", stdin);
     std::ignore = freopen("output.txt", "w", stdout);
