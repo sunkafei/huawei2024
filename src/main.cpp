@@ -1215,7 +1215,7 @@ void generate() { //输出瓶颈断边场景的交互部分
 }
 int main() { // 244843 368043 45675.1(43761.6)
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("testcase2.in", "r", stdin);
+    std::ignore = freopen("smz.in", "r", stdin);
     std::ignore = freopen("output.txt", "w", stdout);
 #endif
     instance_t::read();
