@@ -231,6 +231,15 @@ struct transaction_t {
         #endif
     }
 };
+struct item_t {
+    double value;
+    int counter;
+    case_t sequence;
+    item_t(double val, int cnt, case_t&& seq) : value(val), counter(cnt), sequence(std::move(seq)) {}
+    bool operator< (const item_t& rhs) const {
+        return value < rhs.value;
+    }
+};
 std::mt19937 engine;
 std::vector<std::pair<int, edge_t*>> G[MAXN];
 std::vector<std::vector<std::pair<double, int>>> pretests;
@@ -1067,12 +1076,8 @@ void generate() { //输出瓶颈断边场景的交互部分
     for (int i = 1; i <= m; ++i) {
         indices.push_back(i);
     }
-    using item_t = std::tuple<double, int, case_t>;
-    auto compare = [](const auto& x, const auto& y) {
-        return std::get<0>(x) < std::get<0>(y);
-    };
     std::uniform_real_distribution<double> eps(0, 1e-5);
-    std::priority_queue<item_t, std::vector<item_t>, decltype(compare)> queue(compare);
+    std::priority_queue<item_t> queue;
     case_t init;
     for (int i = 1; i <= m; ++i) {
         init.emplace_back(0.0, i);
@@ -1081,7 +1086,7 @@ void generate() { //输出瓶颈断边场景的交互部分
     if (init.size() > MAXC) {
         init.resize(MAXC);
     }
-    queue.emplace(0, DEGREE, init);
+    queue.emplace(0.0, DEGREE, std::move(init));
     double last = runtime();
     std::vector<std::pair<double, case_t>> cases;
     vector_t<int, MAXC> position[MAXC];
@@ -1092,10 +1097,10 @@ void generate() { //输出瓶颈断边场景的交互部分
         }
         std::vector<std::pair<double, int>> deleted;
         timestamp += 1;
-        while (queue.size() > 1 && std::get<1>(queue.top()) <= 0) {
-            auto [value, _, sequence] = queue.top();
+        while (queue.size() > 1 && queue.top().counter <= 0) {
+            auto item = queue.top();
             queue.pop();
-            cases.emplace_back(value, std::move(sequence));
+            cases.emplace_back(item.value, std::move(item.sequence));
         }
         const auto& [_, cnt, best] = queue.top();
         const_cast<int&>(cnt) -= 1;
@@ -1177,9 +1182,9 @@ void generate() { //输出瓶颈断边场景的交互部分
         queue.emplace(mx, DEGREE, std::move(deleted));
     }
     while (queue.size()) {
-        auto [value, _, sequence] = queue.top();
+        auto item = queue.top();
         queue.pop();
-        cases.emplace_back(value, std::move(sequence));
+        cases.emplace_back(item.value, std::move(item.sequence));
     }
     #ifdef __SMZ_RUNTIME_CHECK
     for (auto& [_, deleted] : cases) {
