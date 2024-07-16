@@ -640,7 +640,7 @@ namespace search {
             }
         }
     }
-    path_t astar(const query_t& qry) noexcept {
+    path_t astar(const query_t& qry, int limit=INF) noexcept {
         if (baseline[qry.to][qry.from] == INF) {
             return {};
         }
@@ -657,8 +657,13 @@ namespace search {
             A.push_back(qry.from | (j << 12));
         }
         int channel = -1;
+        int estimate = baseline[qry.to][qry.from];
         while (A.size() || B1.size() || B2.size() || C.size()) {
             while (A.empty()) {
+                estimate += 1;
+                if (estimate > limit) {
+                    return {};
+                }
                 A.clear();
                 //todo：更新合并方式
                 while (B1.size() && B2.size()) {
@@ -933,13 +938,14 @@ template<bool once=true, bool is_baseline=false> transaction_t solve(int e) {
         updated.reserve(indices.size());
         for (auto i : indices) {
             auto c = query[i].path.back().second;
+            auto len = query[i].path.size();
             query[i].undo();
             ::iterations += 1;
             path_t new_path;
             if constexpr (is_baseline) {
                 new_path = search::bfs(query[i], c);
             }else{
-                new_path = search::astar(query[i]);
+                new_path = search::astar(query[i], len + 7);
             }
             
             #ifdef __SMZ_RUNTIME_CHECK
@@ -1245,9 +1251,9 @@ void generate() { //输出瓶颈断边场景的交互部分
     print("Score different: ", sum * 10000.0 / total);
     #endif
 }
-int main() { // 244843 368043 45675.1(43761.6)
+int main() { // 244664 388723 44496.7(1496772)
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("testcase2.in", "r", stdin);
+    std::ignore = freopen("smz.in", "r", stdin);
     std::ignore = freopen("output.txt", "w", stdout);
 #endif
     testcase::run();
