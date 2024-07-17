@@ -41,14 +41,26 @@ def calc(group):
         delta -= items[(i, answer[i])]
     print("Best seed:", pos, sep='\t')
     print("Score:     ", best, f"   ({delta})", sep='\t')
-#case1:  0<=m<50
-#case2:  180<=m<200&&p[1]%2==0
-#case3:  50<=m<100
-#csae4:  180<=m<200&&p[1]%2==0
-#case5:  180<=m<200
-#case6:  150<=m<170
-#case7:  350<=m<400
-#csae8:  350<=m<400&&p[1]%2==0
-#case9:  200<=m<350
-#case10: 200<=m<350&&p[1]%2==0
-calc(["case2"])
+#calc(["case2"])
+code = '''
+case1:  0<=m<50
+case2:  180<=m<200 && p[1]%2==0
+case3:  50<=m<100
+csae4:  180<=m<200 && p[1]%2==0
+case5:  180<=m<200
+case6:  150<=m<170
+case7:  350<=m<400
+csae8:  350<=m<400 && p[1]%2==0
+case9:  200<=m<350
+case10: 200<=m<350 && p[1]%2==0
+'''
+idx = 0
+print("int checker = 0;")
+for line in code.split('\n'):
+    if not line.strip():
+        continue
+    idx += 1
+    condition = ' '.join(line.split()[1:])
+    format = f"if ({condition}) engine.seed({answer['case' + str(idx)]}), checker += 1;"
+    print(format)
+print("if (checker != 1) abort();")
