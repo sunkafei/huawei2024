@@ -13,11 +13,12 @@
 #include <cmath>
 #include <cstdlib>
 #include <chrono>
+#include <map>
 using namespace std;
 const int MAXN = 207, MAXM = 1000;
 const int Q_LIM = 2007, K=40;
-int SEARCH_WAY = 0,RANGE_LIM = 1, REPEAT_PATH = 1, GRAPH = 5, CHECK = 10 , VALUE_LIM = 20;
-
+int SEARCH_WAY = 1,RANGE_LIM = 1, GRAPH = 1,VALUE_LIM = 20, REPEAT_PATH = 10;
+//0 default 1 count_top 2 count_bottom
 
 struct tag{
     int src,snk;
@@ -28,8 +29,8 @@ vector<pair<int,int> >edge;
 vector<pair<int,int> >to[MAXN];
 bitset<K> h[MAXM];
 vector<tag>mission;
-int n = 200,m =  1000;
-// int n=30,m=100;
+int n = 30,m = 100;
+// int n=10,m=30;
 int p[207] = {0};
 
 
@@ -101,8 +102,8 @@ bool get_path(int s,int t) {
         const auto &tp = q[op];
         int x = tp.first;
         // cout << "op" << op <<" " << "ed" <<" " << ed << " " << x <<" "<<tp.second.first<<endl;
-        // 顺序bug，艹
-        // random_shuffle( to[x].begin(), to[x].end());
+        //顺序bug，艹
+        map<int,int> histoty;
         for(auto it = to[x].begin();it != to[x].end() && ed < Q_LIM;it++) {
             int y = it->first;
             int pos = it->second;
@@ -111,6 +112,12 @@ bool get_path(int s,int t) {
             // cout <<"vised:" <<tp.second.second<<"\ntp.second:"<<tp.second.first<<"h[pos]:"<<h[pos]<<endl;
             if(tp.second.vis[y]) continue;
             if(new_bit.all()) continue;
+            if(histoty.count(y) != 0 and histoty[y] <= h[pos].count()) {
+                continue;
+            }
+            else {
+                histoty[y] = h[pos].count();
+            }
             bitset<MAXN> new_vis = tp.second.vis;
             new_vis.set(y);
             q[ed] = make_pair(y,q_element(new_bit,new_vis,op,pos));
@@ -173,31 +180,6 @@ void get_output(tag &tp) {
     return;
 }
 
-
-auto get_paths() {
-    int g[MAXN][MAXN];
-    memset(g,0x3f3f3f3f,sizeof(g));
-    for(auto [x,y] : edge) {
-        g[x][y] = g[y][x] = 1;
-    }
-    for(int k = 1;k <= n;k++) 
-        for(int i = 1;i <= n;i++) 
-            for(int j = 1;j <= n;j++) 
-                g[i][j] = min(g[i][j],g[i][k] + g[k][j]);
-
-    vector<pair<int,pair<int,int> >> res;
-    for(int i = 1;i <= n;i++) {
-        for(int j = i + 1;j <= n;j++) {
-            res.push_back(make_pair(-g[i][j],make_pair(i,j)));
-        }
-    }
-    sort(res.begin(),res.end());
-
-    // res.erase(res.begin() + int(sqrt(res.size())),res.end());
-    // random_shuffle(res.begin(),res.end());
-    return res;
-}
-
 void cover(const tag &tp) {
     bitset<K>st;
     for(int pid = tp.l;pid <= tp.r;pid++) {
@@ -205,33 +187,6 @@ void cover(const tag &tp) {
     }
     for(auto id : tp.path) h[id] |= st;
     return;
-}
-double get_cover(){
-    double cnt = 0, sum = 0;
-    for(int i = 0;i < m;i++) {
-        sum += K;
-        cnt += h[i].count();
-    }
-    return cnt / sum;
-}
-
-int get_longest() {
-    int g[MAXN][MAXN];
-    memset(g,0x3f,sizeof(g));
-    for(auto [x,y] : edge) {
-        g[x][y] = g[y][x] = 1;
-    }
-    for(int k = 1;k <= n;k++) 
-        for(int i = 1;i <= n;i++) 
-            for(int j = 1;j <= n;j++) 
-                g[i][j] = min(g[i][j],g[i][k] + g[k][j]);
-
-    int res = 0;
-    for(int i = 1;i <= n;i++) 
-        for(int j = 1;j <= n;j++) {
-            res = max(res,g[i][j]);
-        }
-    return res;
 }
 
 struct Point {
@@ -315,71 +270,77 @@ vector<pair<int, int>> generate_gabriel_graph(const vector<Point>& points) {
 }
 
 
-int fa[MAXN] = {0};
-int getfa(int v) {
-    if(fa[v] == v) return v;
-    return fa[v] = getfa(fa[v]);
-}
-int get_imp(int id) {
-    for(int i = 0;i <= n;i++) fa[i] = i;
-    vector<pair<int,int> >ttp;
-    for(auto x : edge) ttp.push_back(x);
-    random_shuffle(ttp.begin(),ttp.end());
-    int res = 0;
-    for(auto [x,y] : ttp) {
-        int A = getfa(x);
-        int B = getfa(y);
-        if(A == B) continue;
-        int C = getfa(edge[id].first);
-        int D = getfa(edge[id].second);
-        if(A == C and B == D or A == D and B == C) {
-            res++;
-            continue;
-        }
-        fa[A] = B;
+double get_cover(){
+    double cnt = 0, sum = 0;
+    for(int i = 0;i < m;i++) {
+        sum += K;
+        cnt += h[i].count();
     }
+    return cnt / sum;
+}
 
+auto get_paths() {
+    int g[MAXN][MAXN];
+    memset(g,0x3f3f3f3f,sizeof(g));
+    for(auto [x,y] : edge) {
+        g[x][y] = g[y][x] = 1;
+    }
+    for(int k = 1;k <= n;k++) 
+        for(int i = 1;i <= n;i++) 
+            for(int j = 1;j <= n;j++) 
+                g[i][j] = min(g[i][j],g[i][k] + g[k][j]);
+
+    vector<pair<int,pair<int,int> >> res;
+    for(int i = 1;i <= n;i++) {
+        for(int j = i + 1;j <= n;j++) {
+            res.push_back(make_pair(-g[i][j],make_pair(i,j)));
+        }
+    }
+    sort(res.begin(),res.end());
+
+    // res.erase(res.begin() + int(sqrt(res.size())),res.end());
+    // random_shuffle(res.begin(),res.end());
     return res;
 }
 
-void check_graph() {
-    vector<int> imp;
-    for(int i = 0;i < edge.size();i++) {
-        imp.push_back(get_imp(i));
+int get_longest() {
+    int g[MAXN][MAXN];
+    memset(g,0x3f,sizeof(g));
+    for(auto [x,y] : edge) {
+        g[x][y] = g[y][x] = 1;
     }
-    int end = edge.size() - 1;
-    for(int i = 0;i + 1< edge.size();i++) {
-        if(imp[end] == 1 or imp[i] > 1 and imp[i] > imp[end]) {
-            swap(edge[i],edge[end]);
-            swap(imp[i],imp[end]);
-        }
-    }
-    if(imp[end] > 1) edge.pop_back();
-    return;
+    for(int k = 1;k <= n;k++) 
+        for(int i = 1;i <= n;i++) 
+            for(int j = 1;j <= n;j++) 
+                g[i][j] = min(g[i][j],g[i][k] + g[k][j]);
+
+    int res = 0;
+    for(int i = 1;i <= n;i++) 
+        for(int j = 1;j <= n;j++)
+            res = max(res,g[i][j]);
+    return res;
 }
 
+
+
 int main(){
-    int total_time = 0,max_time = 0,min_time = 0x3f3f3f3f;
-    int goon = 20;
-    srand(42);
-    while(goon--) {
-        // SEARCH_WAY = 0;
-        // RANGE_LIM = 1;
+    int total_time = 0;
+    int goon = true;
+    while(goon) {
+        srand(time(NULL));
         ofstream outfile;
         // string rule;
         // cin >> rule;
         outfile.open("smz.in");
 
         for(int i = 0;i <= n;i++) {
-            p[i] = rand() % 10 + 10;
+            p[i] = rand() % 16 + 5;
+            if (rand() % 3 != 0) p[i] = 0;
             to[i].clear();
         }
         edge.clear();
-        vector<tag> tp;
-        swap(tp,mission);
-        cout<<"j0="<<mission.size()<<endl;
+        mission.clear();
         for(int i = 0;i <= m;i++) h[i].reset();
-
 
 
         if (!GRAPH) {//不生成gg图
@@ -407,41 +368,21 @@ int main(){
             }
             edge = generate_gabriel_graph(points);
         }
-        cout <<"SEARCH_WAY: " << SEARCH_WAY << endl;
-        cout <<"RANGE_LIM: " << RANGE_LIM << endl;
-        cout <<"GRAPH: " << GRAPH << endl;
-
-        // for(int i = 0;i < CHECK;i++) {
-        //     check_graph();
-        //     while(rand() % 2 == 0) {
-        //         int x = rand() % n + 1;
-        //         int y = rand() % n + 1;
-        //         while(y == x) y = rand() % n + 1;
-        //         if(x > y) swap(x,y);
-        //         edge.push_back(make_pair(x,y));
-        //     }
-        // }
-        // cout << "init edge.size() " << edge.size() << endl;
+        cout << "init edge.size() " << edge.size() << endl;
+        // m = edge.size();
         while(edge.size() < m) {
-            int x,y;
-            // if (rand() % 1 == 0) {
-                x = rand() % n + 1;
-                y = rand() % n + 1;
-                while(y == x) y = rand() % n + 1;
-            // }
-            // else {
-            //     x = rand() % (n/2) + (n/2);
-            //     y = rand() % (n/2) + (n/2);
-            //     while(y == x) y = rand() % (n/2) + (n/2);
-            // }
+            int x = rand() % n + 1;
+            int y = rand() % n + 1;
+            while(y == x) y = rand() % n + 1;
             if(x > y) swap(x,y);
-            // if (find(edge.begin(),edge.end(),make_pair(x,y)) == edge.end()) {
-            //     continue;
-            // }
+            // x = 1;
+            // y = n;   
+            if (find(edge.begin(),edge.end(),make_pair(x,y)) == edge.end()) {
+                continue;
+            }
             edge.push_back(make_pair(x,y));
-
         }
-        // cout << "total edge.size() " << edge.size() << endl;
+        cout << "total edge.size() " << edge.size() << endl;
         random_shuffle(edge.begin(),edge.end());
         for(int i = 0;i < edge.size();i++) {
             to[edge[i].first].push_back(make_pair(edge[i].second,i));
@@ -454,85 +395,86 @@ int main(){
         // assert(S.size() == edge.size());
         // sort(edge.begin(),edge.end());
 
-        // auto paths = get_paths();
-        // // paths.erase(paths.begin() + (int)sqrt(paths.size()),paths.end());
-        // paths.erase(paths.begin() + 10,paths.end());
-        // random_shuffle(paths.begin(),paths.end());
-        // cout <<"get paths done "<< endl;
-        // int minn = m,maxx = 0;
-        // for(auto [x,y] : paths) {
-        //     static int pathi = 0;
-        //     pathi++;
-        //     if(pathi % 100 == 0) cout << "part:" << pathi << " " << "(mission)" <<" " << mission.size() <<"/" << paths.size()<< endl;
-        //     tag tp;
-        //     tp.src = y.first;
-        //     tp.snk = y.second;
-        //     if(get_path(tp.src,tp.snk)) {
-        //         get_output(tp);
-        //         int T = REPEAT_PATH;
-        //         while(T--) {
-        //             tag new_tp;
-        //             new_tp.src = tp.src;
-        //             new_tp.snk = tp.snk;
-        //             if(get_path(new_tp.src,new_tp.snk)) {
-        //                 get_output(new_tp);
-        //                 if(new_tp.path.size() > tp.path.size()) tp = new_tp;
-        //             }
-        //         }
-        //         // cout <<" pre success" << tp.src <<" "<<tp.snk << " " << mission.size() <<endl;
-        //         cover(tp);
-        //         // if(tp.path.size() >= 30) continue;
-        //         mission.push_back(tp);
-        //         minn = min((int)tp.path.size(),minn);
-        //         maxx = max((int)tp.path.size(),minn);
-        //         // cout <<" las success" << tp.src <<" "<<tp.snk << " " <<mission.size() <<endl;
-        //     }
-        // }
-        // cout<<"init mission = "<<mission.size()<<endl;
-        // cout<<"init cover ratio:"<<get_cover()<<endl;
-        // cout<<"init min dis:"<<minn<<endl;
-        // cout<<"init max dis:"<<maxx<<endl;
 
-        
-        int J = 5000;
+        auto paths = get_paths();
+        // paths.erase(paths.begin() + (int)sqrt(paths.size()),paths.end());
+        paths.erase(paths.begin() + paths.size() / 100,paths.end());
+        random_shuffle(paths.begin(),paths.end());
+        cout <<"get paths done "<< endl;
+        int minn = m,maxx = 0;
+        for(auto [x,y] : paths) {
+            static int pathi = 0;
+            pathi++;
+            if(pathi % 100 == 0) cout << "part:" << pathi << " " << "(mission)" <<" " << mission.size() <<"/" << paths.size()<< endl;
+            tag tp;
+            tp.src = y.first;
+            tp.snk = y.second;
+            if(get_path(tp.src,tp.snk)) {
+                // cout <<" pre success" << tp.src <<" "<<tp.snk << " " << mission.size() <<endl;
+                get_output(tp);
+                cover(tp);
+                // if(tp.path.size() >= 30) continue;
+                mission.push_back(tp);
+                minn = min((int)tp.path.size(),minn);
+                maxx = max((int)tp.path.size(),minn);
+                // cout <<" las success" << tp.src <<" "<<tp.snk << " " <<mission.size() <<endl;
+            }
+        }
+        cout<<"init mission = "<<mission.size()<<endl;
+        cout<<"init cover ratio:"<<get_cover()<<endl;
+        cout<<"init min dis:"<<minn<<endl;
+        cout<<"init max dis:"<<maxx<<endl;
+        int J = 96;
+
         for(int i = 1;i <= 1000000 and mission.size() < J;i++) {
-            if(i % 1000 == 0) cout << "edge:" << i << " " << mission.size() <<" "<<op <<" "<< ed<< endl;
+            if(i % 100000 == 0) cout << "pre part:" << i << " " << "(mission)" <<" " << mission.size() << endl;
             tag tp;
             tp.src = rand() % n + 1;
             tp.snk = rand() % n + 1;
             while(tp.src == tp.snk) tp.snk = rand() % n + 1;
             if(get_path(tp.src,tp.snk)) {
+                
                 // cout <<" pre success" << tp.src <<" "<<tp.snk << " " << mission.size() <<endl;
                 get_output(tp);
-                int T = REPEAT_PATH;
-                while(T--) {
-                    tag new_tp;
-                    new_tp.src = tp.src;
-                    new_tp.snk = tp.snk;
-                    if(get_path(new_tp.src,new_tp.snk)) {
-                        get_output(new_tp);
-                        if(new_tp.path.size() > tp.path.size()) tp = new_tp;
-                    }
-                }
-                if(tp.path.size() <= 3) continue;
-                // if(tp.path.size() <= 7 and rand() % 2 == 0) continue; 
-                // if(tp.path.size() <= 10 and rand() % 3 == 0) continue; 
-                // cout <<" pre success" << tp.src <<" "<<tp.snk << " " << mission.size() <<endl;
+                if(tp.path.size() <= 4) continue;
+                if(tp.path.size() <= 7 and rand() % 2 == 0) continue; 
+                if(tp.path.size() <= 10 and rand() % 3 == 0) continue; 
                 cover(tp);
                 mission.push_back(tp);
                 // cout <<" las success" << tp.src <<" "<<tp.snk << " " <<mission.size() <<endl;
             }
         }
-        cout<<"j="<<mission.size()<<endl;
+
+
+
+        for(int i = 1;i <= 100000 and mission.size() < J;i++) {
+            if(i % 10000 == 0) cout << "lat part:" << i << " " << "(mission)" <<" " << mission.size() << endl;
+            tag tp;
+            tp.src = rand() % n + 1;
+            tp.snk = rand() % n + 1;
+            while(tp.src == tp.snk) tp.snk = rand() % n + 1;
+            if(get_path(tp.src,tp.snk)) {
+                
+                // cout <<" pre success" << tp.src <<" "<<tp.snk << " " << mission.size() <<endl;
+                get_output(tp);
+                // if(tp.path.size() <= 4) continue;
+                // if(tp.path.size() <= 7 and rand() % 2 == 0) continue; 
+                // if(tp.path.size() <= 10 and rand() % 3 == 0) continue; 
+                cover(tp);
+                mission.push_back(tp);
+                // cout <<" las success" << tp.src <<" "<<tp.snk << " " <<mission.size() <<endl;
+            }
+        }
+        cout<<"mission = "<<mission.size()<<endl;
+        cout<<"cover ratio:"<<get_cover()<<endl;
         outfile<<n<<" "<<m<<endl;
         for(int i = 1;i <= n;i++) outfile<<p[i]<<" ";outfile<<endl;
         for(auto x : edge) {
             assert(x.first !=0 and x.second != 0);
-            if (rand() & 1) swap(x.first,x.second);
-            outfile << x.first<<" " << x.second<<endl;
+            if (rand() & 1) outfile << x.first<<" " << x.second<<endl;
+            else outfile << x.second<<" " << x.first<<endl;
         }
         outfile<<mission.size()<<endl;
-        random_shuffle(mission.begin(),mission.end());
         for(auto x: mission) {
             outfile << x.src <<" " << x.snk<<" "<<x.path.size()<< " " <<x.l + 1<<" " <<x.r + 1<<" "<<x.v<<endl;
             for(auto j : x.path) {
@@ -550,26 +492,12 @@ int main(){
         for(int i = 1;i <= t;i++) num[i] = rand();
         double sum = accumulate(num + 1,num + t + 1 ,0);
 
-
-        int cnt[1007] = {0};
-        for(auto x : mission) {
-            for(auto y : x.path) {
-                cnt[y]++;
-            }
-        }
-
         while(t) {
-            int x = 60;
+            int x = round(num[t] * 50 * t / sum);
+            x = 60;
             int kill[MAXM] = {0};
             for(int j = 1;j <= m;j++) kill[j] = j;
-            
             random_shuffle(kill+1,kill + m + 1);
-            sort(kill + 1,kill + m + 1,[cnt](const int &a,const int &b){
-                if(cnt[a] != cnt[b]) return cnt[a] > cnt[b];
-                return false;
-                // if(h[a].count() != h[b].count()) return h[a].count() > h[b].count();
-                // return a > b;
-            });
             for(int i = 1;i <= min(x,m);i++) outfile << kill[i] << endl;
             outfile << -1 << endl;
             t--;
@@ -593,29 +521,23 @@ int main(){
         auto start = std::chrono::high_resolution_clock::now();
         int res = system(command.c_str());
         auto end = std::chrono::high_resolution_clock::now();
-        
         auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
         // int res = 0;
-        // int res = 0;
-        cout<<"mission = "<<mission.size()<<endl;
-        cout<<"cover ratio:"<<get_cover()<<endl;
-        cout<<"longest"<<get_longest()<<endl;
-
-        if(res != 0) continue;
-        total_time += duration.count();
-        if((int)duration.count() > max_time) {
-            max_time = (int)duration.count();
-            string command = "copy /y smz.in max_smz.in\n";
-            system(command.c_str());
-        }
-        
-        min_time = min(min_time,(int)duration.count());
-        cout << total_time / idx<< endl;;
-        cout << max_time<< endl;;
-        cout << min_time<< endl;;
+        goon = 0;
+        cout<<"time"<<duration.count()<<endl;
     }
-    // cout << total_time / 20<< endl;;
-    // cout << max_time<< endl;;
-    // cout << min_time<< endl;;
+    // cout << "1 case time" << total_time << endl;
+    cout<<"mission = "<<mission.size()<<endl;
+    cout<<"cover ratio:"<<get_cover()<<endl;
+    cout<<"longest"<<get_longest()<<endl;
+    
+    // for(auto [x,y] : edge) {
+    //     cout << x <<" " << y << endl;
+    // }
     return 0;
 }
+
+/*
+RANGE_LIM 1 SEARCH_WAY 4 graph 0
+
+*/
