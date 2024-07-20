@@ -19,10 +19,10 @@ constexpr int MAXM = 1024;
 constexpr int MAXQ = 6000;
 constexpr int MAXTIME = 89;
 constexpr int MAXGENTIME = 30;
-constexpr int MAXT1 = 50;
-constexpr int MAXC = 50;
+constexpr int MAXT1 = 30;
+constexpr int MAXC = 60;
 constexpr int DEGREE = 50;
-constexpr double MAXJACCARD = 0.6;
+constexpr double MAXJACCARD = 0.5;
 int64_t iterations = 0;
 int num_operations = INF;
 int n, m, q, p[MAXN];
@@ -1071,7 +1071,7 @@ void generate() { //输出瓶颈断边场景的交互部分
             return x / y;
         };
         for (int i = 0; i < pretests.size(); ++i) {
-            if (jaccard(pretests[i], deleted) > 0.6) {
+            if (jaccard(pretests[i], deleted) > MAXJACCARD) {
                 return false;
             }
         }
@@ -1253,7 +1253,7 @@ void generate() { //输出瓶颈断边场景的交互部分
 }
 int main() { // 244664 388723 44496.7(1496772)
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("smz.in", "r", stdin);
+    std::ignore = freopen("testcase1.in", "r", stdin);
     std::ignore = freopen("output.txt", "w", stdout);
 #endif
     testcase::run();
@@ -1283,7 +1283,7 @@ int main() { // 244664 388723 44496.7(1496772)
             std::reverse(data.begin(), data.end());
         }
 #endif
-        const int maxfail = std::min(m, 50);
+        const int maxfail = std::min(m, 60);
         if (num_operations > T * maxfail) {
             num_operations = T * maxfail;
         }
