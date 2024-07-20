@@ -805,67 +805,67 @@ namespace search {
         //     }
         // }
 
-        if (channel == -1) {
-            std::vector<int> vec;
-            vec.reserve(k - qry.span);
-            for(int j = 1; j <= k - qry.span; ++j) if(j < start_c || j > start_c + qry.span){ //if (j != start_c) {
-                vec.push_back(j);
-            }
-            // shuffle(vec.begin(), vec.end(), engine);
-            for (auto j : vec) {
-                queue.clear();
-                queue.emplace(qry.from, j);
-                visit[qry.from][j] = timestamp;
-                while (channel == -1 && !queue.empty()) {
-                    auto [x, i] = queue.front();
-                    queue.pop();
-                    const uint64_t mask = (1ull << (i + qry.span + 1)) - (1ull << i);
-                    for (auto [y, info] : G[x]) {
-                        if (!info->empty(mask)) {
-                            continue;
-                        }
-                        if (visit[y][i] != timestamp) {
-                            visit[y][i] = timestamp;
-                            queue.emplace(y, i);
-                            father[y][i] = {x, i, info->index};
-                            if (y == qry.to) {
-                                channel = i;
-                                break;
-                            }
-                        }
-                    }
-                }
-                if (channel != -1) {
-                    break;
-                }
-            }
-        }
-
-        // queue.clear();
-        // for(int j = 1; j <= k - qry.span; ++j) if (j != start_c) {
-        //     queue.emplace(qry.from, j);
-        //     visit[qry.from][j] = timestamp;
-        // }
-        
-        // while (channel == -1 && !queue.empty()) {
-        //     auto [x, i] = queue.front();
-        //     queue.pop();
-        //     const uint64_t mask = (1ull << (i + qry.span + 1)) - (1ull << i);
-        //     for (auto [y, info] : G[x]) {
-        //         if (!info->empty(mask)) {
-        //             continue;
-        //         }
-        //         if (visit[y][i] != timestamp) {
-        //             visit[y][i] = timestamp;
-        //             queue.emplace(y, i);
-        //             father[y][i] = {x, i, info->index};
-        //             if (y == qry.to) {
-        //                 channel = i;
-        //                 break;
+        // if (channel == -1) {
+        //     std::vector<int> vec;
+        //     vec.reserve(k - qry.span);
+        //     for(int j = 1; j <= k - qry.span; ++j) {//if (j != start_c) {
+        //         vec.push_back(j);
+        //     }
+        //     // shuffle(vec.begin(), vec.end(), engine);
+        //     for (auto j : vec) {
+        //         queue.clear();
+        //         queue.emplace(qry.from, j);
+        //         visit[qry.from][j] = timestamp;
+        //         while (channel == -1 && !queue.empty()) {
+        //             auto [x, i] = queue.front();
+        //             queue.pop();
+        //             const uint64_t mask = (1ull << (i + qry.span + 1)) - (1ull << i);
+        //             for (auto [y, info] : G[x]) {
+        //                 if (!info->empty(mask)) {
+        //                     continue;
+        //                 }
+        //                 if (visit[y][i] != timestamp) {
+        //                     visit[y][i] = timestamp;
+        //                     queue.emplace(y, i);
+        //                     father[y][i] = {x, i, info->index};
+        //                     if (y == qry.to) {
+        //                         channel = i;
+        //                         break;
+        //                     }
+        //                 }
         //             }
+        //         }
+        //         if (channel != -1) {
+        //             break;
         //         }
         //     }
         // }
+
+        queue.clear();
+        for(int j = 1; j <= k - qry.span; ++j) if (j != start_c) {
+            queue.emplace(qry.from, j);
+            visit[qry.from][j] = timestamp;
+        }
+        
+        while (channel == -1 && !queue.empty()) {
+            auto [x, i] = queue.front();
+            queue.pop();
+            const uint64_t mask = (1ull << (i + qry.span + 1)) - (1ull << i);
+            for (auto [y, info] : G[x]) {
+                if (!info->empty(mask)) {
+                    continue;
+                }
+                if (visit[y][i] != timestamp) {
+                    visit[y][i] = timestamp;
+                    queue.emplace(y, i);
+                    father[y][i] = {x, i, info->index};
+                    if (y == qry.to) {
+                        channel = i;
+                        break;
+                    }
+                }
+            }
+        }
 
         if (channel == -1) {
             return {};
@@ -939,7 +939,7 @@ template<bool once=true, bool is_baseline=false> transaction_t solve(int e) {
         for (auto i : indices) {
             auto c = query[i].path.back().second;
             auto len = query[i].path.size();
-            query[i].undo();
+            if constexpr (!is_baseline) query[i].undo();
             ::iterations += 1;
             path_t new_path;
             if constexpr (is_baseline) {
@@ -981,9 +981,10 @@ template<bool once=true, bool is_baseline=false> transaction_t solve(int e) {
             #endif
             if (new_path.empty()) {
                 loss += query[i].value;
-                query[i].redo();
+                if constexpr (!is_baseline) query[i].redo();
             }
             else {
+                if constexpr (is_baseline) query[i].undo();
                 length += new_path.size() * (query[i].span + 1);
                 query[i].confirm(std::move(new_path));
                 updated.push_back(i);
