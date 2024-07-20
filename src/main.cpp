@@ -945,7 +945,7 @@ template<bool once=true, bool is_baseline=false> transaction_t solve(int e) {
             if constexpr (is_baseline) {
                 new_path = search::bfs(query[i], c);
             }else{
-                new_path = search::astar(query[i], len + 7);
+                new_path = search::astar(query[i], len + 10);
             }
             
             #ifdef __SMZ_RUNTIME_CHECK
