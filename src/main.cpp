@@ -698,15 +698,15 @@ namespace search {
                 break;
             }
             if (p[x] > 0 && !first_vis[x]) {
-                A.push_front(x | (0 << 12));
+                C.push_front(x | (0 << 12));
                 first_vis[x] = i;
             }
             if (i == 0) {
                 const int i = first_vis[x];
                 for (int j = 1; j + qry.span <= k; ++j) {
-                    if (visit[x][j] < timestamp || dist[x][j] > dist[x][i]) {
+                    if (visit[x][j] < timestamp || dist[x][j] > dist[x][i] + 2) {
                         visit[x][j] = timestamp;
-                        dist[x][j] = dist[x][i];
+                        dist[x][j] = dist[x][i] + 2;
                         state[x][j] = state[x][i];
                         father[x][j] = {x, i, -1};
                     }
@@ -772,7 +772,7 @@ namespace search {
             #endif
         }
         #ifdef __SMZ_RUNTIME_CHECK
-        if (path.size() != length) {
+        if (path.size() > length) {
             abort();
         }
         #endif
@@ -945,7 +945,7 @@ template<bool once=true, bool is_baseline=false> transaction_t solve(int e) {
             if constexpr (is_baseline) {
                 new_path = search::bfs(query[i], c);
             }else{
-                new_path = search::astar(query[i], len + 2);
+                new_path = search::astar(query[i], len + 7);
             }
             
             #ifdef __SMZ_RUNTIME_CHECK
@@ -1254,7 +1254,7 @@ void generate() { //输出瓶颈断边场景的交互部分
 }
 int main() { // 244664 388723 44496.7(1496772)
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("testcase1.in", "r", stdin);
+    std::ignore = freopen("testcase2.in", "r", stdin);
     std::ignore = freopen("output.txt", "w", stdout);
 #endif
     testcase::run();
