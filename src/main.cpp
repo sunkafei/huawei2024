@@ -1122,7 +1122,7 @@ void generate() { //输出瓶颈断边场景的交互部分
         std::sort(order.begin(), order.end(), [&](int x, int y) {
             return deleted[x].first < deleted[y].first;
         });
-        int r = std::max(std::sqrt(deleted.size()), 1.0);
+        int r = std::max(std::pow(deleted.size(), 0.6), 1.0);
         for (int i = 0; i < r; ++i) {
             deleted[order[i]].second = -1;
         }
