@@ -1283,7 +1283,7 @@ int main() { // 244664 388723 44496.7(1496772)
             std::reverse(data.begin(), data.end());
         }
 #endif
-        const int maxfail = std::min(m, 60);
+        const int maxfail = std::min(m, MAXC);
         if (num_operations > T * maxfail) {
             num_operations = T * maxfail;
         }
