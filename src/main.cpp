@@ -18,7 +18,7 @@ constexpr int MAXN = 256;
 constexpr int MAXM = 1024;
 constexpr int MAXQ = 6000;
 constexpr int MAXTIME = 89;
-constexpr int MAXGENTIME = 30;
+constexpr int MAXGENTIME = 60;
 constexpr int MAXT1 = 30;
 constexpr int MAXC = 60;
 constexpr int DEGREE = 30;
@@ -887,7 +887,7 @@ namespace search {
         return path;
     }
 }
-template<bool once=true, bool is_baseline=false> transaction_t solve(int e) {
+template<bool once=false, bool is_baseline=false> transaction_t solve(int e) {
     int s = edges[e].first, t = edges[e].second;
     for (int i = 0; i < G[s].size(); ++i) {
         if (G[s][i].second->index == e) {
