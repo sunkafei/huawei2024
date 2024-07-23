@@ -22,13 +22,12 @@ constexpr int MAXT1 = 30;
 constexpr int MAXC = 60;
 constexpr double MAXJACCARD = 0.5;
 // Hyperparameters --------------------------------
-constexpr int DEGREE = 30;
+constexpr int DEGREE = 2;
 constexpr int MAXGENTIME = 50;
 constexpr double EXPAND_RATIO = 0.2;
-constexpr double TRANSFORM_EXP = 2.0 / 3.0;
-constexpr double LEARNING_RATE = 0.05;
-constexpr double COEFFICIENT = 5.0;
-constexpr double INIT_Q = 0.0;
+constexpr double TRANSFORM_EXP = 0.75;
+constexpr double LEARNING_RATE = 0.1;
+constexpr double COEFFICIENT = 1e-5;
 // ------------------------------------------------
 int64_t iterations = 0;
 int num_operations = INF;
@@ -1062,10 +1061,6 @@ void generate() { //输出瓶颈断边场景的交互部分
     static double Q[MAXM], N[MAXM];
     static int64_t visit[MAXM];
     static int64_t timestamp = 1;
-    for (int i = 0; i < MAXM; ++i) {
-        Q[i] = INIT_Q;
-        N[i] = 1e-9;
-    }
     auto check = [](const auto& deleted) {
         auto jaccard = [](const auto& A, const auto& B) {
             double x = 0, y = A.size();
@@ -1102,9 +1097,16 @@ void generate() { //输出瓶颈断边场景的交互部分
         init.resize(MAXC);
     }
     queue.emplace(0.0, DEGREE, std::move(init));
-    double last = runtime();
+    double last = runtime(), total = 0;
     std::vector<std::pair<double, case_t>> cases;
     vector_t<int, MAXC> position[MAXC];
+    for (int j = 1; j <= q; ++j) {
+        total += query[j].value;
+    }
+    for (int i = 0; i < MAXM; ++i) {
+        Q[i] = total / m;
+        N[i] = 1e-9;
+    }
     for (int t = 1; ; ++t) {
         double now = runtime();
         if (now > MAXGENTIME) {
@@ -1142,19 +1144,12 @@ void generate() { //输出瓶颈断边场景的交互部分
         for (auto [v, i] : deleted) {
             visit[i] = timestamp;
         }
-        /*std::vector<int> indices;
-        indices.reserve(m);
-        for (int i = 1; i <= m; ++i) if (visit[i] != timestamp) {
-            indices.push_back(i);
-        }
-        std::sort(indices.begin(), indices.end(), [](auto x, auto y) {
-            return model[x] > model[y];
-        });*/
         std::vector<std::pair<double, int>> values;
-        auto ln_t = std::log(t);
         for (int i = 1; i <= m; ++i) if (visit[i] != timestamp) {
-            const auto weight = Q[i] + COEFFICIENT * std::sqrt(ln_t / N[i]); //UCB algorithm
-            values.emplace_back(weight, i);
+            const auto weight = Q[i] + COEFFICIENT * total * (t - N[i]);
+            auto upper_bound = std::pow(std::max(1.0, weight), 1.0 / 3.0);
+            std::uniform_real_distribution<double> gen(0.0, upper_bound);
+            values.emplace_back(gen(engine), i);
         }
         std::sort(values.begin(), values.end(), [](auto x, auto y) {
             return x.first > y.first;
@@ -1217,7 +1212,7 @@ void generate() { //输出瓶颈断边场景的交互部分
                 abort();
             }
             #endif
-            N[e] += 1;
+            N[e] = t;
             Q[e] = LEARNING_RATE * v + (1.0 - LEARNING_RATE) * Q[e];
         }
         queue.emplace(mx, DEGREE, std::move(deleted));
@@ -1279,10 +1274,7 @@ void generate() { //输出瓶颈断边场景的交互部分
     print("Data Generated.");
     print("Cases size: ", used + 1, "/", cases.size());
     print("Max: ", cases[0].first);
-    double sum = 0, total = 0;
-    for (int j = 1; j <= q; ++j) {
-        total += query[j].value;
-    }
+    double sum = 0;
     for (const auto& deleted : pretests) {
         for (auto [v, _] : deleted) {
             sum += v;
@@ -1293,7 +1285,7 @@ void generate() { //输出瓶颈断边场景的交互部分
 }
 int main() { // 244664 388723 44496.7(1496772)
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("lq.in", "r", stdin);
+    std::ignore = freopen("cases/testcase2.in", "r", stdin);
     std::ignore = freopen("output.txt", "w", stdout);
 #endif
     testcase::run();
