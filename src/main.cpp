@@ -1215,11 +1215,13 @@ void generate() { //输出瓶颈断边场景的交互部分
     std::sort(cases.begin(), cases.end(), [](const auto& x, const auto& y) {
         return x.first > y.first;
     });
+    int used = -1;
     for (int i = 0; i < cases.size(); ++i) {
         auto& [_, deleted] = cases[i];
         if (check(deleted)) {
             pretests.push_back(std::move(deleted));
             if (pretests.size() == MAXT1) {
+                used = i;
                 break;
             }
         }
@@ -1246,7 +1248,8 @@ void generate() { //输出瓶颈断边场景的交互部分
         }
     }
     print("Data Generated.");
-    print("Cases size: ", cases.size());
+    print("Cases size: ", used + 1, "/", cases.size());
+    print("Max: ", cases[0].first);
     double sum = 0, total = 0;
     for (int j = 1; j <= q; ++j) {
         total += query[j].value;
