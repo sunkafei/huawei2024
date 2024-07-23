@@ -1055,6 +1055,42 @@ template<bool once=true, bool is_baseline=false> transaction_t solve(int e) {
     }
     return transaction_t{best.first, std::move(answer), std::move(dead)};
 }
+
+namespace union_set {
+    int fa[MAXN];
+    void init(){
+        for(int i = 1; i <= n; i++){
+            fa[i] = i;
+        }
+    }
+
+    int find(int x){
+        if(fa[x] != x) fa[x] = find(fa[x]);
+        return fa[x];
+    }
+
+    std::vector <int> gen(int64_t *visit, int64_t timestamp){
+        std::vector <int> indices(m);
+        std::vector <int> ret;
+        for(int i = 1; i <= m; i++){
+            indices[i - 1] = i;
+        }
+        shuffle(indices.begin(), indices.end(), engine);
+
+        init();
+        for(auto i : indices){
+            if (visit[i] == timestamp) continue;
+            int x = edges[i].first, y = edges[i].second;
+            if(find(x) == find(y)){
+                ret.push_back(i);
+            }else{
+                fa[find(x)] = find(y);
+            }
+        }
+        return ret;
+    }
+}
+
 void generate() { //输出瓶颈断边场景的交互部分
     static int64_t visit[MAXM];
     static int64_t timestamp = 1;
@@ -1135,10 +1171,11 @@ void generate() { //输出瓶颈断边场景的交互部分
             return pair.second == -1;
         });
         deleted.erase(iter, deleted.end());
-        std::shuffle(indices.begin(), indices.end(), engine);
+        // std::shuffle(indices.begin(), indices.end(), engine);
         for (auto [v, i] : deleted) {
             visit[i] = timestamp;
         }
+        auto indices = union_set::gen(visit, timestamp);
         for (auto i : indices) if (visit[i] != timestamp) {
             deleted.emplace_back(0, i);
             if (deleted.size() >= MAXC) {
