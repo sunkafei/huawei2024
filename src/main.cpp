@@ -18,11 +18,15 @@ constexpr int MAXN = 256;
 constexpr int MAXM = 1024;
 constexpr int MAXQ = 6000;
 constexpr int MAXTIME = 89;
-constexpr int MAXGENTIME = 50;
 constexpr int MAXT1 = 30;
 constexpr int MAXC = 60;
-constexpr int DEGREE = 30;
 constexpr double MAXJACCARD = 0.5;
+// Hyperparameters --------------------------------
+constexpr int DEGREE = 30;
+constexpr int MAXGENTIME = 50;
+constexpr double EXPAND_RATIO = 0.2;
+constexpr double TRANSFORM_EXP = 2.0 / 3.0;
+// ------------------------------------------------
 int64_t iterations = 0;
 int num_operations = INF;
 int n, m, q, p[MAXN];
@@ -1112,6 +1116,7 @@ void generate() { //输出瓶颈断边场景的交互部分
         const auto& [_, cnt, best] = queue.top();
         const_cast<int&>(cnt) -= 1;
         deleted = best;
+        const int maxsize = std::min<int>(deleted.size() + MAXC * EXPAND_RATIO, MAXC);
         for (int i = 0; i < deleted.size(); ++i) {
             deleted[i].first += eps(engine);
         }
@@ -1122,7 +1127,7 @@ void generate() { //输出瓶颈断边场景的交互部分
         std::sort(order.begin(), order.end(), [&](int x, int y) {
             return deleted[x].first < deleted[y].first;
         });
-        int r = std::max(std::pow(deleted.size(), 2.0 / 3.0), 1.0);
+        int r = std::max(std::pow(deleted.size(), TRANSFORM_EXP), 1.0);
         for (int i = 0; i < r; ++i) {
             deleted[order[i]].second = -1;
         }
@@ -1159,8 +1164,8 @@ void generate() { //输出瓶颈断边场景的交互部分
                 deleted.emplace_back(0.0, j);
             }
         }
-        if (deleted.size() > MAXC) {
-            deleted.resize(MAXC);
+        if (deleted.size() > maxsize) {
+            deleted.resize(maxsize);
         }
         testcase::start();
         for (int j = 0; j < deleted.size(); ++j) {
@@ -1210,7 +1215,8 @@ void generate() { //输出瓶颈断边场景的交互部分
     std::sort(cases.begin(), cases.end(), [](const auto& x, const auto& y) {
         return x.first > y.first;
     });
-    for (auto& [_, deleted] : cases) {
+    for (int i = 0; i < cases.size(); ++i) {
+        auto& [_, deleted] = cases[i];
         if (check(deleted)) {
             pretests.push_back(std::move(deleted));
             if (pretests.size() == MAXT1) {
@@ -1240,6 +1246,7 @@ void generate() { //输出瓶颈断边场景的交互部分
         }
     }
     print("Data Generated.");
+    print("Cases size: ", cases.size());
     double sum = 0, total = 0;
     for (int j = 1; j <= q; ++j) {
         total += query[j].value;
