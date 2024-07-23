@@ -26,6 +26,9 @@ constexpr int DEGREE = 30;
 constexpr int MAXGENTIME = 50;
 constexpr double EXPAND_RATIO = 0.2;
 constexpr double TRANSFORM_EXP = 2.0 / 3.0;
+constexpr double LEARNING_RATE = 0.05;
+constexpr double COEFFICIENT = 5.0;
+constexpr double INIT_Q = 0.0;
 // ------------------------------------------------
 int64_t iterations = 0;
 int num_operations = INF;
@@ -1056,8 +1059,13 @@ template<bool once=true, bool is_baseline=false> transaction_t solve(int e) {
     return transaction_t{best.first, std::move(answer), std::move(dead)};
 }
 void generate() { //输出瓶颈断边场景的交互部分
+    static double Q[MAXM], N[MAXM];
     static int64_t visit[MAXM];
     static int64_t timestamp = 1;
+    for (int i = 0; i < MAXM; ++i) {
+        Q[i] = INIT_Q;
+        N[i] = 1e-9;
+    }
     auto check = [](const auto& deleted) {
         auto jaccard = [](const auto& A, const auto& B) {
             double x = 0, y = A.size();
@@ -1083,10 +1091,6 @@ void generate() { //输出瓶颈断边场景的交互部分
         return true;
     };
     testcase::start();
-    std::vector<int> indices;
-    for (int i = 1; i <= m; ++i) {
-        indices.push_back(i);
-    }
     std::uniform_real_distribution<double> eps(0, 1e-5);
     std::priority_queue<item_t> queue;
     case_t init;
@@ -1101,7 +1105,7 @@ void generate() { //输出瓶颈断边场景的交互部分
     double last = runtime();
     std::vector<std::pair<double, case_t>> cases;
     vector_t<int, MAXC> position[MAXC];
-    for (;;) {
+    for (int t = 1; ; ++t) {
         double now = runtime();
         if (now > MAXGENTIME) {
             break;
@@ -1135,11 +1139,27 @@ void generate() { //输出瓶颈断边场景的交互部分
             return pair.second == -1;
         });
         deleted.erase(iter, deleted.end());
-        std::shuffle(indices.begin(), indices.end(), engine);
         for (auto [v, i] : deleted) {
             visit[i] = timestamp;
         }
-        for (auto i : indices) if (visit[i] != timestamp) {
+        /*std::vector<int> indices;
+        indices.reserve(m);
+        for (int i = 1; i <= m; ++i) if (visit[i] != timestamp) {
+            indices.push_back(i);
+        }
+        std::sort(indices.begin(), indices.end(), [](auto x, auto y) {
+            return model[x] > model[y];
+        });*/
+        std::vector<std::pair<double, int>> values;
+        auto ln_t = std::log(t);
+        for (int i = 1; i <= m; ++i) if (visit[i] != timestamp) {
+            const auto weight = Q[i] + COEFFICIENT * std::sqrt(ln_t / N[i]); //UCB algorithm
+            values.emplace_back(weight, i);
+        }
+        std::sort(values.begin(), values.end(), [](auto x, auto y) {
+            return x.first > y.first;
+        });
+        for (auto [_, i] : values) {
             deleted.emplace_back(0, i);
             if (deleted.size() >= MAXC) {
                 break;
@@ -1191,6 +1211,15 @@ void generate() { //输出瓶颈断边场景的交互部分
             }
         }
         deleted.resize(idx + 1);
+        for (auto [v, e] : deleted) {
+            #ifdef __SMZ_RUNTIME_CHECK
+            if (e <= 0 || e >= MAXM || LEARNING_RATE < 0 || LEARNING_RATE > 1) {
+                abort();
+            }
+            #endif
+            N[e] += 1;
+            Q[e] = LEARNING_RATE * v + (1.0 - LEARNING_RATE) * Q[e];
+        }
         queue.emplace(mx, DEGREE, std::move(deleted));
     }
     while (queue.size()) {
@@ -1264,7 +1293,7 @@ void generate() { //输出瓶颈断边场景的交互部分
 }
 int main() { // 244664 388723 44496.7(1496772)
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("cases/testcase8.in", "r", stdin);
+    std::ignore = freopen("lq.in", "r", stdin);
     std::ignore = freopen("output.txt", "w", stdout);
 #endif
     testcase::run();
