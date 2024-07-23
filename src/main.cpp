@@ -1112,16 +1112,15 @@ void generate() { //输出瓶颈断边场景的交互部分
         if (now > MAXGENTIME) {
             break;
         }
-        std::vector<std::pair<double, int>> deleted;
         timestamp += 1;
         while (queue.size() > 1 && queue.top().counter <= 0) {
             auto item = queue.top();
             queue.pop();
             cases.emplace_back(item.value, std::move(item.sequence));
         }
-        const auto& [_, cnt, best] = queue.top();
-        const_cast<int&>(cnt) -= 1;
-        deleted = best;
+        const auto& item = queue.top();
+        const_cast<int&>(item.counter) -= 1;
+        auto deleted = item.sequence;
         const int maxsize = std::min<int>(deleted.size() + MAXC * EXPAND_RATIO, MAXC);
         for (int i = 0; i < deleted.size(); ++i) {
             deleted[i].first += eps(engine);
@@ -1285,7 +1284,7 @@ void generate() { //输出瓶颈断边场景的交互部分
 }
 int main() { // 244664 388723 44496.7(1496772)
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("cases/testcase2.in", "r", stdin);
+    std::ignore = freopen("lq.in", "r", stdin);
     std::ignore = freopen("output.txt", "w", stdout);
 #endif
     testcase::run();
