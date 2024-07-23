@@ -27,7 +27,7 @@ constexpr int MAXGENTIME = 50;
 constexpr double EXPAND_RATIO = 0.2;
 constexpr double TRANSFORM_EXP = 0.75;
 constexpr double LEARNING_RATE = 0.1;
-constexpr double COEFFICIENT = 1e-5;
+constexpr double COEFFICIENT = 0.01;
 // ------------------------------------------------
 int64_t iterations = 0;
 int num_operations = INF;
@@ -1144,8 +1144,9 @@ void generate() { //输出瓶颈断边场景的交互部分
             visit[i] = timestamp;
         }
         std::vector<std::pair<double, int>> values;
+        const auto coef = item.value / m * COEFFICIENT;
         for (int i = 1; i <= m; ++i) if (visit[i] != timestamp) {
-            const auto weight = Q[i] + COEFFICIENT * total * (t - N[i]);
+            const auto weight = Q[i] + coef * (t - N[i]);
             auto upper_bound = std::pow(std::max(1.0, weight), 1.0 / 3.0);
             std::uniform_real_distribution<double> gen(0.0, upper_bound);
             values.emplace_back(gen(engine), i);
@@ -1284,7 +1285,7 @@ void generate() { //输出瓶颈断边场景的交互部分
 }
 int main() { // 244664 388723 44496.7(1496772)
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("lq.in", "r", stdin);
+    std::ignore = freopen("cases/testcase0.in", "r", stdin);
     std::ignore = freopen("output.txt", "w", stdout);
 #endif
     testcase::run();
