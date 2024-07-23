@@ -25,7 +25,8 @@ constexpr double MAXJACCARD = 0.5;
 constexpr int DEGREE = 2;
 constexpr int MAXGENTIME = 50;
 constexpr double EXPAND_RATIO = 0.2;
-constexpr double TRANSFORM_EXP = 0.75;
+constexpr double DELETE_EXP = 0.75;
+constexpr double PERMUTE_EXP = 0.25;
 constexpr double LEARNING_RATE = 0.1;
 constexpr double COEFFICIENT = 0.01;
 // ------------------------------------------------
@@ -1132,7 +1133,7 @@ void generate() { //输出瓶颈断边场景的交互部分
         std::sort(order.begin(), order.end(), [&](int x, int y) {
             return deleted[x].first < deleted[y].first;
         });
-        int r = std::max(std::pow(deleted.size(), TRANSFORM_EXP), 1.0);
+        const int r = std::max(std::pow(item.sequence.size(), DELETE_EXP), 1.0);
         for (int i = 0; i < r; ++i) {
             deleted[order[i]].second = -1;
         }
@@ -1161,7 +1162,8 @@ void generate() { //输出瓶颈断边场景的交互部分
             }
         }
         //constexpr double probability = (1 - MAXJACCARD) / (1 + MAXJACCARD);
-        std::bernoulli_distribution bernoulli(1.0 / r);
+        const double r2 = std::max(std::pow(item.sequence.size(), PERMUTE_EXP), 1.0);
+        std::bernoulli_distribution bernoulli(r2 / deleted.size());
         std::uniform_int_distribution<int> uniform(0, MAXC - 1);
         for (int i = 0; i < MAXC; ++i) {
             position[i].clear();
@@ -1283,10 +1285,13 @@ void generate() { //输出瓶颈断边场景的交互部分
     print("Score different: ", sum * 10000.0 / total);
     #endif
 }
-int main() { // 244664 388723 44496.7(1496772)
+int main(int argc, char* argv[]) { // 244664 388723 44496.7(1496772)
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("cases/testcase0.in", "r", stdin);
+    std::ignore = freopen("cases/testcase6.in", "r", stdin);
     std::ignore = freopen("output.txt", "w", stdout);
+    if (argc >= 2) {
+        std::ignore = freopen(argv[1], "r", stdin);
+    }
 #endif
     testcase::run();
     generate();
