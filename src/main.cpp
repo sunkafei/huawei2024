@@ -27,6 +27,7 @@ constexpr int MAXGENTIME = 50;
 constexpr double EXPAND_RATIO = 0.2;
 constexpr double DELETE_RATIO = 2.0;
 constexpr double PERMUTE_EXP = 0.25;
+constexpr double BOUND_EXP = 1.0 / 3.0;
 constexpr double LEARNING_RATE = 0.1;
 constexpr double COEFFICIENT = 0.01;
 // ------------------------------------------------
@@ -1149,7 +1150,7 @@ void generate() { //输出瓶颈断边场景的交互部分
         const auto coef = item.value / m * COEFFICIENT;
         for (int i = 1; i <= m; ++i) if (visit[i] != timestamp) {
             const auto weight = Q[i] + coef * (t - N[i]);
-            auto upper_bound = std::pow(std::max(1.0, weight), 1.0 / 3.0);
+            auto upper_bound = std::pow(std::max(1.0, weight), BOUND_EXP);
             std::uniform_real_distribution<double> gen(0.0, upper_bound);
             values.emplace_back(gen(engine), i);
         }
