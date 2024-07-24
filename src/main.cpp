@@ -21,16 +21,16 @@ constexpr int MAXTIME = 89;
 constexpr int MAXT1 = 30;
 constexpr int MAXC = 60;
 constexpr double MAXJACCARD = 0.5;
-// Hyperparameters --------------------------------
-constexpr int DEGREE = 2;
-constexpr int MAXGENTIME = 50;
-constexpr double EXPAND_RATIO = 0.2;
-constexpr double DELETE_RATIO = 2.0;
-constexpr double PERMUTE_EXP = 0.25;
-constexpr double BOUND_EXP = 1.0 / 3.0;
-constexpr double LEARNING_RATE = 0.1;
-constexpr double COEFFICIENT = 0.01;
-// ------------------------------------------------
+// Hyperparameters ------------------------------------------
+constexpr int DEGREE = 2;                   //每个状态扩展出来的子状态个数
+constexpr int MAXGENTIME = 50;              //生成数据消耗的时间
+constexpr double EXPAND_RATIO = 0.2;        //每个状态的子状态最多比父状态多的边数的百分比，超过这个比例会剪枝
+constexpr double DELETE_RATIO = 2.0;        //相似度乘数，越大生成的不同数据之间相似度越低
+constexpr double PERMUTE_EXP = 0.25;        //控制子状态中有多少边会被重排，越大重排的边越多，生成的数据相似度也越低
+constexpr double BOUND_EXP = 1.0 / 3.0;     //控制边的权值的分布，越小数据之间的相似度会越低
+constexpr double LEARNING_RATE = 0.1;       //控制权值预测的学习率
+constexpr double COEFFICIENT = 0.01;        //不确定性在权值中的占比
+// ----------------------------------------------------------
 int64_t iterations = 0;
 int num_operations = INF;
 int n, m, q, p[MAXN];
