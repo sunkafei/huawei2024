@@ -8,6 +8,7 @@
 /build/**/compile.main.pdb
 /build/**/main.ilk
 /build/**/main.pdb
+/build/**/tmp.txt
 .DS_Store
 .vscode
 *.bak
