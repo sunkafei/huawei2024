@@ -1158,10 +1158,10 @@ void generate() { //输出瓶颈断边场景的交互部分
             return x.first > y.first;
         });
         for (auto [_, i] : values) {
-            deleted.emplace_back(0, i);
             if (deleted.size() >= MAXC) {
                 break;
             }
+            deleted.emplace_back(0, i);
         }
         const double r2 = std::max(std::pow(item.sequence.size(), PERMUTE_EXP), 1.0);
         std::bernoulli_distribution bernoulli(r2 / deleted.size());
