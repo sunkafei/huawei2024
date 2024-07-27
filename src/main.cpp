@@ -1090,25 +1090,27 @@ void generate() { //输出瓶颈断边场景的交互部分
     testcase::start();
     std::uniform_real_distribution<double> eps(0, 1e-5);
     std::priority_queue<item_t> queue;
-    case_t init;
-    for (int i = 1; i <= m; ++i) {
-        init.emplace_back(0.0, i);
-    }
-    std::shuffle(init.begin(), init.end(), engine);
-    if (init.size() > MAXC) {
-        init.resize(MAXC);
-    }
-    queue.emplace(0.0, DEGREE, std::move(init));
     double last = runtime(), total = 0;
     std::vector<std::pair<double, case_t>> cases;
     vector_t<int, MAXC> position[MAXC];
     for (int j = 1; j <= q; ++j) {
         total += query[j].value;
     }
-    for (int i = 0; i < MAXM; ++i) {
-        Q[i] = total / m;
+    for (int i = 1; i <= m; ++i) {
+        Q[i] = solve<true, true>(i).loss - solve<true, false>(i).loss;
         N[i] = 1e-9;
     }
+    case_t init;
+    for (int i = 1; i <= m; ++i) {
+        init.emplace_back(Q[i], i);
+    }
+    std::sort(init.begin(), init.end(), [](auto x, auto y) {
+        return x.first > y.first;
+    });
+    if (init.size() > MAXC) {
+        init.resize(MAXC);
+    }
+    queue.emplace(0.0, DEGREE, std::move(init));
     for (int t = 1; ; ++t) {
         double now = runtime();
         if (now > MAXGENTIME) {
