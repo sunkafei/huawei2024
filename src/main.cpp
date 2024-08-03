@@ -1287,7 +1287,7 @@ void generate() { //输出瓶颈断边场景的交互部分
             deleted[j].first = -transaction.loss;
             transaction.commit();
         }
-        // testcase::adapt();
+        testcase::adapt();
         testcase::start();
         for (int j = 0; j < deleted.size(); ++j) {
             int e = deleted[j].second;
