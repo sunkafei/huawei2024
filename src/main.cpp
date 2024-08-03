@@ -502,6 +502,7 @@ namespace io {
 namespace testcase {
     int p[MAXN];
     std::pair<int, int> nodes[MAXM];
+    int pcnt[MAXN];
     std::vector<std::tuple<int, int, int, int, int, int, std::vector<int>>> business;
     void run() {
         io::start_reading();
@@ -552,6 +553,8 @@ namespace testcase {
             for (int i = 1; i <= length; ++i) {
                 int e = io::read_int();
                 E.push_back(e);
+                pcnt[nodes[e].first]++;
+                pcnt[nodes[e].second]++;
                 #ifdef __SMZ_RUNTIME_CHECK
                 if (e < 1 || e > m) {
                     abort();
@@ -560,12 +563,33 @@ namespace testcase {
             }
             business.emplace_back(s, t, length, L, R, V, std::move(E));
         }
+        // int sum = 0;
+        // for(int i = 1; i <= n; i++){
+        //     sum += p[i];
+        // }
+        // for(int i = 1; i <= n; i++){
+        //     p[i] = sum / n + (sum % n >= i);
+        // }
         int sum = 0;
+        int psum = 0;
         for(int i = 1; i <= n; i++){
-            sum += p[i];
+            psum += p[i];
+            pcnt[i] >>= 1;
+            sum += pcnt[i];
         }
+        int psum2 = 0;
+        std::queue <int> q;
         for(int i = 1; i <= n; i++){
-            p[i] = sum / n + (sum % n >= i);
+            p[i] = std::min(1ll * pcnt[i] * psum / sum, 20ll);
+            psum2 += p[i];
+            if(p[i] < 20) q.push(i);
+        }
+        psum -= psum2;
+        for(int j = 1; j <= psum; j++){
+            auto i = q.front();
+            q.pop();
+            p[i]++;
+            if(p[i] < 20) q.push(i);
         }
     }
     void adapt() {
@@ -1090,6 +1114,42 @@ template<bool once=true, bool is_baseline=false> transaction_t solve(int e) {
     }
     return transaction_t{best.first, std::move(answer), std::move(dead)};
 }
+
+namespace union_set {
+    int fa[MAXN];
+    void init(){
+        for(int i = 1; i <= n; i++){
+            fa[i] = i;
+        }
+    }
+
+    int find(int x){
+        if(fa[x] != x) fa[x] = find(fa[x]);
+        return fa[x];
+    }
+
+    std::vector <int> gen(int64_t *visit, int64_t timestamp){
+        std::vector <int> indices(m);
+        std::vector <int> ret;
+        for(int i = 1; i <= m; i++){
+            indices[i - 1] = i;
+        }
+        shuffle(indices.begin(), indices.end(), engine);
+
+        init();
+        for(auto i : indices){
+            if (visit[i] == timestamp) continue;
+            int x = edges[i].first, y = edges[i].second;
+            if(find(x) == find(y)){
+                ret.push_back(i);
+            }else{
+                fa[find(x)] = find(y);
+            }
+        }
+        return ret;
+    }
+}
+
 void generate() { //输出瓶颈断边场景的交互部分
     static double Q[MAXM], N[MAXM];
     static int64_t visit[MAXM];
@@ -1181,6 +1241,8 @@ void generate() { //输出瓶颈断边场景的交互部分
         }
         std::vector<std::pair<double, int>> values;
         const auto coef = item.value / m * COEFFICIENT;
+        // auto indices = union_set::gen(visit, timestamp);
+        // for (auto i : indices) if (visit[i] != timestamp) {
         for (int i = 1; i <= m; ++i) if (visit[i] != timestamp) {
             const auto weight = Q[i] + coef * (t - N[i]);
             auto upper_bound = std::pow(std::max(0.0, weight), BOUND_EXP);
@@ -1225,7 +1287,7 @@ void generate() { //输出瓶颈断边场景的交互部分
             deleted[j].first = -transaction.loss;
             transaction.commit();
         }
-        testcase::adapt();
+        // testcase::adapt();
         testcase::start();
         for (int j = 0; j < deleted.size(); ++j) {
             int e = deleted[j].second;
