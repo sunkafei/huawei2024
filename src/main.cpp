@@ -564,12 +564,33 @@ namespace testcase {
         for(int i = 1; i <= n; i++){
             sum += p[i];
         }
-        io::start_writing();
         for(int i = 1; i <= n; i++){
             p[i] = sum / n + (sum % n >= i);
-            io::write_int(p[i]);
         }
-        io::flush();
+    }
+    void adapt() {
+        double now = runtime();
+        if (now > 10) {
+            return;
+        }
+        int tot = 0;
+        std::bernoulli_distribution bernoulli(0.1);
+        for (int i = 1; i <= n; ++i) {
+            if (::p[i] > 1) {
+                if (bernoulli(engine)) {
+                    tot += 1;
+                    p[i] -= 1;
+                }
+            }
+        }
+        std::uniform_int_distribution<int> uniform(1, n);
+        for (int i = 0; i < tot; ++i) {
+            int idx = uniform(engine);
+            while (p[idx] == 20) {
+                idx = uniform(engine);
+            }
+            p[idx] += 1;
+        }
     }
     void start() {
         #ifdef __SMZ_RUNTIME_CHECK
@@ -1204,6 +1225,7 @@ void generate() { //输出瓶颈断边场景的交互部分
             deleted[j].first = -transaction.loss;
             transaction.commit();
         }
+        testcase::adapt();
         testcase::start();
         for (int j = 0; j < deleted.size(); ++j) {
             int e = deleted[j].second;
@@ -1265,6 +1287,13 @@ void generate() { //输出瓶颈断边场景的交互部分
             }
         }
     }
+
+    io::start_writing();
+    for(int i = 1; i <= n; i++){
+        io::write_int(p[i]);
+    }
+    io::flush();
+
     io::start_writing();
     io::write_int(pretests.size());
     io::flush();
@@ -1300,7 +1329,7 @@ void generate() { //输出瓶颈断边场景的交互部分
 }
 int main(int argc, char* argv[]) { // 244664 388723 44496.7(1496772)
 #ifdef __SMZ_NATIVE_TEST
-    std::ignore = freopen("lq.in", "r", stdin);
+    std::ignore = freopen("cases/testcase6.in", "r", stdin);
     std::ignore = freopen("output.txt", "w", stdout);
     if (argc >= 2) {
         std::ignore = freopen(argv[1], "r", stdin);
