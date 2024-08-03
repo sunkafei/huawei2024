@@ -560,6 +560,16 @@ namespace testcase {
             }
             business.emplace_back(s, t, length, L, R, V, std::move(E));
         }
+        int sum = 0;
+        for(int i = 1; i <= n; i++){
+            sum += p[i];
+        }
+        io::start_writing();
+        for(int i = 1; i <= n; i++){
+            p[i] = sum / n + (sum % n >= i);
+            io::write_int(p[i]);
+        }
+        io::flush();
     }
     void start() {
         #ifdef __SMZ_RUNTIME_CHECK
