@@ -1008,7 +1008,7 @@ template<bool once=false, bool is_baseline=false> transaction_t solve(int e) {
             if constexpr (is_baseline) {
                 new_path = search::bfs(query[i], c);
             }else{
-                new_path = search::astar(query[i], len + 10);
+                new_path = search::astar(query[i], len + 7);
             }
             
             #ifdef __SMZ_RUNTIME_CHECK
