@@ -576,7 +576,7 @@ namespace testcase {
         int tot = 0;
         std::bernoulli_distribution bernoulli(0.1);
         for (int i = 1; i <= n; ++i) {
-            if (::p[i] > 1) {
+            if (::p[i] > 0) {
                 if (bernoulli(engine)) {
                     tot += 1;
                     p[i] -= 1;
