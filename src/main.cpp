@@ -23,7 +23,7 @@ constexpr int MAXC = 60;
 constexpr double MAXJACCARD = 0.5;
 // Hyperparameters ------------------------------------------
 constexpr int DEGREE = 2;                   //每个状态扩展出来的子状态个数
-constexpr int MAXGENTIME = 50;              //生成数据消耗的时间
+constexpr int MAXGENTIME = 60;              //生成数据消耗的时间
 constexpr double EXPAND_RATIO = 0.2;        //每个状态的子状态最多比父状态多的边数的百分比，超过这个比例会剪枝
 constexpr double DELETE_RATIO = 2.0;        //相似度乘数，越大生成的不同数据之间相似度越低
 constexpr double PERMUTE_EXP = 0.25;        //控制子状态中有多少边会被重排，越大重排的边越多，生成的数据相似度也越低
@@ -950,7 +950,7 @@ namespace search {
         return path;
     }
 }
-template<bool once=true, bool is_baseline=false> transaction_t solve(int e) {
+template<bool once=false, bool is_baseline=false> transaction_t solve(int e) {
     int s = edges[e].first, t = edges[e].second;
     for (int i = 0; i < G[s].size(); ++i) {
         if (G[s][i].second->index == e) {
@@ -1241,9 +1241,9 @@ void generate() { //输出瓶颈断边场景的交互部分
         }
         std::vector<std::pair<double, int>> values;
         const auto coef = item.value / m * COEFFICIENT;
-        // auto indices = union_set::gen(visit, timestamp);
-        // for (auto i : indices) if (visit[i] != timestamp) {
-        for (int i = 1; i <= m; ++i) if (visit[i] != timestamp) {
+        auto indices = union_set::gen(visit, timestamp);
+        for (auto i : indices) if (visit[i] != timestamp) {
+        // for (int i = 1; i <= m; ++i) if (visit[i] != timestamp) {
             const auto weight = Q[i] + coef * (t - N[i]);
             auto upper_bound = std::pow(std::max(0.0, weight), BOUND_EXP);
             std::uniform_real_distribution<double> gen(0.0, upper_bound);
